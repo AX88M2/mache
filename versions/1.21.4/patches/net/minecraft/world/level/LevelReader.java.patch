@@ -1,0 +1,36 @@
+--- a/net/minecraft/world/level/LevelReader.java
++++ b/net/minecraft/world/level/LevelReader.java
+@@ -2,6 +_,8 @@
+ 
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.api.rendering.data.v1.RenderAttachedBlockView;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Holder;
+ import net.minecraft.core.HolderLookup;
+@@ -22,7 +_,7 @@
+ import net.minecraft.world.level.levelgen.Heightmap;
+ import net.minecraft.world.phys.AABB;
+ 
+-public interface LevelReader extends BlockAndTintGetter, CollisionGetter, SignalGetter, BiomeManager.NoiseBiomeSource {
++public interface LevelReader extends BlockAndTintGetter, CollisionGetter, SignalGetter, BiomeManager.NoiseBiomeSource, RenderAttachedBlockView {
+     @Nullable
+     ChunkAccess getChunk(int x, int z, ChunkStatus chunkStatus, boolean requireChunk);
+ 
+@@ -215,5 +_,15 @@
+     default <T> HolderLookup<T> holderLookup(ResourceKey<? extends Registry<? extends T>> registryKey) {
+         Registry<T> registry = this.registryAccess().lookupOrThrow(registryKey);
+         return registry.filterFeatures(this.enabledFeatures());
++    }
++
++    @Override
++    default boolean hasBiomes() {
++        return true;
++    }
++
++    @Override
++    default Holder<Biome> getBiomeFabric(BlockPos pos) {
++        return getBiome(pos);
+     }
+ }

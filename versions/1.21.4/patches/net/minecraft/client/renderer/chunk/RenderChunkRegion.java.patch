@@ -1,0 +1,74 @@
+--- a/net/minecraft/client/renderer/chunk/RenderChunkRegion.java
++++ b/net/minecraft/client/renderer/chunk/RenderChunkRegion.java
+@@ -1,24 +_,34 @@
+ package net.minecraft.client.renderer.chunk;
+ 
+ import javax.annotation.Nullable;
++
++import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
++import net.fabricmc.fabric.api.rendering.data.v1.RenderAttachedBlockView;
++import net.fabricmc.fabric.impl.blockview.client.RenderDataMapConsumer;
++import net.fabricmc.fabric.impl.client.indigo.renderer.accessor.AccessChunkRendererRegion;
++import net.fabricmc.fabric.impl.client.indigo.renderer.render.TerrainRenderContext;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
++import net.minecraft.core.Holder;
+ import net.minecraft.core.SectionPos;
+ import net.minecraft.world.level.BlockAndTintGetter;
+ import net.minecraft.world.level.ColorResolver;
+ import net.minecraft.world.level.Level;
++import net.minecraft.world.level.biome.Biome;
+ import net.minecraft.world.level.block.entity.BlockEntity;
+ import net.minecraft.world.level.block.state.BlockState;
+ import net.minecraft.world.level.lighting.LevelLightEngine;
+ import net.minecraft.world.level.material.FluidState;
+ 
+-public class RenderChunkRegion implements BlockAndTintGetter {
++public class RenderChunkRegion implements BlockAndTintGetter, RenderDataMapConsumer, RenderAttachedBlockView, AccessChunkRendererRegion {
+     public static final int RADIUS = 1;
+     public static final int SIZE = 3;
+     private final int minChunkX;
+     private final int minChunkZ;
+     protected final RenderChunk[] chunks;
+     protected final Level level;
++    private Long2ObjectMap<Object> fabric_renderDataMap;
++    private TerrainRenderContext fabric_renderer;
+ 
+     RenderChunkRegion(Level level, int minChunkX, int minChunkZ, RenderChunk[] chunks) {
+         this.level = level;
+@@ -74,5 +_,35 @@
+ 
+     public static int index(int minX, int minZ, int x, int z) {
+         return x - minX + (z - minZ) * 3;
++    }
++    
++    @Override
++    public Object getBlockEntityRenderData(BlockPos pos) {
++        return fabric_renderDataMap == null ? null : fabric_renderDataMap.get(pos.asLong());
++    }
++    
++    @Override
++    public void fabric_acceptRenderDataMap(Long2ObjectMap<Object> renderDataMap) {
++        this.fabric_renderDataMap = renderDataMap;
++    }
++
++    @Override
++    public boolean hasBiomes() {
++        return true;
++    }
++
++    @Override
++    public Holder<Biome> getBiomeFabric(BlockPos pos) {
++        return level.getBiome(pos);
++    }
++
++    @Override
++    public TerrainRenderContext fabric_getRenderer() {
++        return fabric_renderer;
++    }
++
++    @Override
++    public void fabric_setRenderer(TerrainRenderContext renderer) {
++        fabric_renderer = renderer;
+     }
+ }

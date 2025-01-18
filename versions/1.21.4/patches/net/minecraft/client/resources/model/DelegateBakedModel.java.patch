@@ -1,0 +1,42 @@
+--- a/net/minecraft/client/resources/model/DelegateBakedModel.java
++++ b/net/minecraft/client/resources/model/DelegateBakedModel.java
+@@ -1,12 +_,18 @@
+ package net.minecraft.client.resources.model;
+ 
+ import java.util.List;
++import java.util.function.Predicate;
++import java.util.function.Supplier;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.api.renderer.v1.mesh.QuadEmitter;
+ import net.minecraft.client.renderer.block.model.BakedQuad;
+ import net.minecraft.client.renderer.block.model.ItemTransforms;
+ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
++import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
+ import net.minecraft.util.RandomSource;
++import net.minecraft.world.level.BlockAndTintGetter;
+ import net.minecraft.world.level.block.state.BlockState;
+ 
+ public abstract class DelegateBakedModel implements BakedModel {
+@@ -44,5 +_,20 @@
+     @Override
+     public ItemTransforms getTransforms() {
+         return this.parent.getTransforms();
++    }
++    
++    @Override
++    public boolean isVanillaAdapter() {
++        return parent.isVanillaAdapter();
++    }
++
++    @Override
++    public void emitBlockQuads(QuadEmitter emitter, BlockAndTintGetter blockView, BlockState state, BlockPos pos, Supplier<RandomSource> randomSupplier, Predicate<@org.jetbrains.annotations.Nullable Direction> cullTest) {
++        parent.emitBlockQuads(emitter, blockView, state, pos, randomSupplier, cullTest);
++    }
++
++    @Override
++    public void emitItemQuads(QuadEmitter emitter, Supplier<RandomSource> randomSupplier) {
++        parent.emitItemQuads(emitter, randomSupplier);
+     }
+ }

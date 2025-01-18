@@ -1,0 +1,53 @@
+--- a/net/minecraft/client/renderer/texture/TextureAtlas.java
++++ b/net/minecraft/client/renderer/texture/TextureAtlas.java
+@@ -13,13 +_,15 @@
+ import java.util.Map;
+ import java.util.Map.Entry;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.impl.renderer.SpriteFinderImpl;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.ReportedException;
+ import net.minecraft.resources.ResourceLocation;
+ import org.slf4j.Logger;
+ 
+-public class TextureAtlas extends AbstractTexture implements Dumpable, Tickable {
++public class TextureAtlas extends AbstractTexture implements Dumpable, Tickable, SpriteFinderImpl.SpriteFinderAccess {
+     private static final Logger LOGGER = LogUtils.getLogger();
+     @Deprecated
+     public static final ResourceLocation LOCATION_BLOCKS = ResourceLocation.withDefaultNamespace("textures/atlas/blocks.png");
+@@ -35,6 +_,7 @@
+     private int width;
+     private int height;
+     private int mipLevel;
++    private SpriteFinderImpl fabric_spriteFinder = null;
+ 
+     public TextureAtlas(ResourceLocation location) {
+         this.location = location;
+@@ -79,6 +_,7 @@
+             this.sprites = List.copyOf(list);
+             this.animatedTextures = List.copyOf(list1);
+         }
++        fabric_spriteFinder = null;
+     }
+ 
+     @Override
+@@ -156,5 +_,17 @@
+ 
+     int getHeight() {
+         return this.height;
++    }
++
++    @Override
++    public SpriteFinderImpl fabric_spriteFinder() {
++        SpriteFinderImpl result = fabric_spriteFinder;
++
++        if (result == null) {
++            result = new SpriteFinderImpl(texturesByName, (TextureAtlas) (Object) this);
++            fabric_spriteFinder = result;
++        }
++
++        return result;
+     }
+ }

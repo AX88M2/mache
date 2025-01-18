@@ -1,0 +1,20 @@
+--- a/net/minecraft/client/resources/model/BakedModel.java
++++ b/net/minecraft/client/resources/model/BakedModel.java
+@@ -2,6 +_,8 @@
+ 
+ import java.util.List;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel;
+ import net.minecraft.client.renderer.block.model.BakedQuad;
+ import net.minecraft.client.renderer.block.model.ItemTransforms;
+ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+@@ -9,7 +_,7 @@
+ import net.minecraft.util.RandomSource;
+ import net.minecraft.world.level.block.state.BlockState;
+ 
+-public interface BakedModel {
++public interface BakedModel extends FabricBakedModel {
+     List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction direction, RandomSource random);
+ 
+     boolean useAmbientOcclusion();

@@ -1,0 +1,122 @@
+--- a/net/minecraft/client/renderer/chunk/RenderRegionCache.java
++++ b/net/minecraft/client/renderer/chunk/RenderRegionCache.java
+@@ -1,18 +_,35 @@
+ package net.minecraft.client.renderer.chunk;
+ 
++import com.llamalad7.mixinextras.sugar.impl.ref.generated.LocalRefImpl;
++import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.impl.blockview.client.RenderDataMapConsumer;
++import net.minecraft.core.BlockPos;
+ import net.minecraft.core.SectionPos;
+ import net.minecraft.world.level.ChunkPos;
+ import net.minecraft.world.level.Level;
++import net.minecraft.world.level.block.entity.BlockEntity;
+ import net.minecraft.world.level.chunk.LevelChunk;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import java.util.ConcurrentModificationException;
++import java.util.Map;
++import java.util.concurrent.atomic.AtomicInteger;
++
+ 
+ public class RenderRegionCache {
+     private final Long2ObjectMap<RenderRegionCache.ChunkInfo> chunkInfoCache = new Long2ObjectOpenHashMap<>();
+-
++    private static final AtomicInteger ERROR_COUNTER = new AtomicInteger();
++    private static final Logger LOGGER = LoggerFactory.getLogger(RenderRegionCache.class);
++    
+     @Nullable
+     public RenderChunkRegion createRegion(Level level, SectionPos sectionPos) {
++        LocalRefImpl sharedRef13 = new LocalRefImpl();
++        sharedRef13.init(null);
+         RenderRegionCache.ChunkInfo chunkInfo = this.getChunkInfo(level, sectionPos.x(), sectionPos.z());
+         if (chunkInfo.chunk().isSectionEmpty(sectionPos.y())) {
+             return null;
+@@ -26,12 +_,16 @@
+             for (int i4 = i1; i4 <= i3; i4++) {
+                 for (int i5 = i; i5 <= i2; i5++) {
+                     int i6 = RenderChunkRegion.index(i, i1, i5, i4);
+-                    RenderRegionCache.ChunkInfo chunkInfo1 = i5 == sectionPos.x() && i4 == sectionPos.z() ? chunkInfo : this.getChunkInfo(level, i5, i4);
+-                    renderChunks[i6] = chunkInfo1.renderChunk();
++                    RenderRegionCache.ChunkInfo chunkInfo2 = i5 == sectionPos.x() && i4 == sectionPos.z() ? chunkInfo : this.getChunkInfo(level, i5, i4);
++                    this.handler$zkh000$fabric_block_view_api_v2$copyDataForChunk(level, sectionPos, chunkInfo2, sharedRef13);
++                    renderChunks[i6] = chunkInfo2.renderChunk();
+                 }
+             }
+-
+-            return new RenderChunkRegion(level, i, i1, renderChunks);
++            
++            RenderChunkRegion returnValue14;
++            RenderChunkRegion var10000 = returnValue14 = new RenderChunkRegion(level, i, i1, renderChunks);
++            this.handler$zkh000$fabric_block_view_api_v2$createDataMap(level, sectionPos, returnValue14, sharedRef13);
++            return var10000;
+         }
+     }
+ 
+@@ -39,7 +_,60 @@
+         return this.chunkInfoCache
+             .computeIfAbsent(ChunkPos.asLong(x, z), l -> new RenderRegionCache.ChunkInfo(level.getChunk(ChunkPos.getX(l), ChunkPos.getZ(l))));
+     }
+-
++    
++    private static Long2ObjectOpenHashMap<Object> mapChunk(LevelChunk chunk, SectionPos chunkSectionPos, Long2ObjectOpenHashMap<Object> map) {
++        if (chunk.getBlockEntities().isEmpty()) {
++            return map;
++        } else {
++            int xMin = SectionPos.sectionToBlockCoord(chunkSectionPos.x() - 1);
++            int yMin = SectionPos.sectionToBlockCoord(chunkSectionPos.y() - 1);
++            int zMin = SectionPos.sectionToBlockCoord(chunkSectionPos.z() - 1);
++            int xMax = SectionPos.sectionToBlockCoord(chunkSectionPos.x() + 1);
++            int yMax = SectionPos.sectionToBlockCoord(chunkSectionPos.y() + 1);
++            int zMax = SectionPos.sectionToBlockCoord(chunkSectionPos.z() + 1);
++
++            for(Map.Entry<BlockPos, BlockEntity> entry : chunk.getBlockEntities().entrySet()) {
++                BlockPos pos = entry.getKey();
++                if (pos.getX() >= xMin && pos.getX() <= xMax && pos.getY() >= yMin && pos.getY() <= yMax && pos.getZ() >= zMin && pos.getZ() <= zMax) {
++                    Object data = entry.getValue().getRenderData();
++                    if (data != null) {
++                        if (map == null) {
++                            map = new Long2ObjectOpenHashMap();
++                        }
++
++                        map.put(pos.asLong(), data);
++                    }
++                }
++            }
++
++            return map;
++        }
++    }
++    
++    private void handler$zkh000$fabric_block_view_api_v2$copyDataForChunk(Level world, SectionPos chunkSectionPos, ChunkInfo clientChunk, LocalRef mapRef) {
++        while(true) {
++            try {
++                mapRef.set(mapChunk(clientChunk.chunk(), chunkSectionPos, (Long2ObjectOpenHashMap)mapRef.get()));
++                return;
++            } catch (ConcurrentModificationException e) {
++                int count = ERROR_COUNTER.incrementAndGet();
++                if (count <= 5) {
++                    LOGGER.warn("[Block Entity Render Data] Encountered CME during render region build. A mod is accessing or changing chunk data outside the main thread. Retrying.", e);
++                    if (count == 5) {
++                        LOGGER.info("[Block Entity Render Data] Subsequent exceptions will be suppressed.");
++                    }
++                }
++            }
++        }
++    }
++
++    private void handler$zkh000$fabric_block_view_api_v2$createDataMap(Level world, SectionPos chunkSectionPos, RenderChunkRegion rendererRegion, LocalRef mapRef) {
++        Long2ObjectOpenHashMap map = (Long2ObjectOpenHashMap)mapRef.get();
++        if (map != null) {
++            ((RenderDataMapConsumer)rendererRegion).fabric_acceptRenderDataMap(map);
++        }
++
++    }
+     static final class ChunkInfo {
+         private final LevelChunk chunk;
+         @Nullable

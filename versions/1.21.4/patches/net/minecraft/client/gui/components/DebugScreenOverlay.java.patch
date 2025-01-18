@@ -1,0 +1,36 @@
+--- a/net/minecraft/client/gui/components/DebugScreenOverlay.java
++++ b/net/minecraft/client/gui/components/DebugScreenOverlay.java
+@@ -21,6 +_,8 @@
+ import java.util.stream.Collectors;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.api.renderer.v1.Renderer;
+ import net.minecraft.ChatFormatting;
+ import net.minecraft.SharedConstants;
+ import net.minecraft.Util;
+@@ -73,6 +_,8 @@
+ import net.minecraft.world.level.material.FluidState;
+ import net.minecraft.world.phys.BlockHitResult;
+ import net.minecraft.world.phys.HitResult;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ 
+ public class DebugScreenOverlay {
+     private static final int COLOR_GREY = 14737632;
+@@ -87,6 +_,7 @@
+         enumMap.put(Heightmap.Types.MOTION_BLOCKING, "M");
+         enumMap.put(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, "ML");
+     });
++    private static final Logger log = LoggerFactory.getLogger(DebugScreenOverlay.class);
+     private final Minecraft minecraft;
+     private final DebugScreenOverlay.AllocationRateCalculator allocationRateCalculator;
+     private final Font font;
+@@ -457,6 +_,7 @@
+                 this.minecraft.getSoundManager().getDebugString()
+                     + String.format(Locale.ROOT, " (Mood %d%%)", Math.round(this.minecraft.player.getCurrentMood() * 100.0F))
+             );
++            list.add("[Fabric] Active renderer: " + Renderer.get().getClass().getSimpleName());
+             return list;
+         }
+     }

@@ -1,0 +1,28 @@
+--- a/net/minecraft/client/Minecraft.java
++++ b/net/minecraft/client/Minecraft.java
+@@ -62,6 +_,8 @@
+ import java.util.function.Function;
+ import java.util.function.Supplier;
+ import javax.annotation.Nullable;
++
++import me.milesglitch.client.Hooks;
+ import net.minecraft.ChatFormatting;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+@@ -434,6 +_,7 @@
+         KeybindResolver.setKeyResolver(KeyMapping::createNameSupplier);
+         this.fixerUpper = DataFixers.getDataFixer();
+         this.toastManager = new ToastManager(this);
++        Hooks.startClient();
+         this.gameThread = Thread.currentThread();
+         this.options = new Options(this, this.gameDirectory);
+         RenderSystem.setShaderGlintAlpha(this.options.glintStrength().get());
+@@ -2296,7 +_,7 @@
+     }
+ 
+     public CompletableFuture<Void> delayTextureReload() {
+-        return this.<CompletableFuture<Void>>submit(this::reloadResourcePacks).thenCompose(completableFuture -> (CompletionStage<Void>)completableFuture);
++        return this.submit(() -> reloadResourcePacks()).thenCompose(completableFuture -> completableFuture);
+     }
+ 
+     public void updateReportEnvironment(ReportEnvironment reportEnvironment) {

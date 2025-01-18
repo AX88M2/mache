@@ -1,0 +1,42 @@
+--- a/net/minecraft/world/level/block/entity/BlockEntity.java
++++ b/net/minecraft/world/level/block/entity/BlockEntity.java
+@@ -5,6 +_,9 @@
+ import java.util.HashSet;
+ import java.util.Set;
+ import javax.annotation.Nullable;
++
++import net.fabricmc.fabric.api.blockview.v2.RenderDataBlockEntity;
++import net.fabricmc.fabric.api.rendering.data.v1.RenderAttachmentBlockEntity;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.HolderLookup;
+@@ -25,7 +_,7 @@
+ import net.minecraft.world.level.block.state.BlockState;
+ import org.slf4j.Logger;
+ 
+-public abstract class BlockEntity {
++public abstract class BlockEntity implements RenderDataBlockEntity, RenderAttachmentBlockEntity {
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private final BlockEntityType<?> type;
+     @Nullable
+@@ -313,5 +_,20 @@
+         <T> T get(DataComponentType<T> component);
+ 
+         <T> T getOrDefault(DataComponentType<? extends T> component, T defaultValue);
++    }
++
++    @Override
++    @Nullable
++    public Object getRenderAttachmentData() {
++        return null;
++    }
++
++    /**
++     * Instead of returning null by default in v2, proxy to v1 method instead.
++     */
++    @Override
++    @Nullable
++    public Object getRenderData() {
++        return getRenderAttachmentData();
+     }
+ }
