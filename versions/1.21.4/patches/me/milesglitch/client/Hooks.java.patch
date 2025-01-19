@@ -1,15 +1,36 @@
 --- /dev/null
 +++ b/me/milesglitch/client/Hooks.java
-@@ -1,0 +_,12 @@
+@@ -1,0 +_,33 @@
 +package me.milesglitch.client;
 +
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
++import net.caffeinemc.mods.sodium.client.compatibility.checks.PreLaunchChecks;
++import net.caffeinemc.mods.sodium.client.compatibility.environment.probe.GraphicsAdapterProbe;
++import net.caffeinemc.mods.sodium.client.compatibility.workarounds.Workarounds;
++import net.caffeinemc.mods.sodium.client.render.frapi.SodiumRenderer;
 +import net.fabricmc.fabric.api.renderer.v1.Renderer;
-+import net.fabricmc.fabric.impl.client.indigo.Indigo;
-+import net.fabricmc.fabric.impl.client.indigo.renderer.IndigoRenderer;
 +
 +public class Hooks {
-+    public static void startClient(){
-+        Indigo.LOGGER.info("[Indigo] Registering Indigo renderer!");
-+        Renderer.register(IndigoRenderer.INSTANCE);
++    public void onPreLaunch(){
++        PreLaunchChecks.checkEnvironment();
++        GraphicsAdapterProbe.findAdapters();
++        Workarounds.init();
++    }
++    
++    public void onInitialize(){
++        
++    }
++    
++    public void onInitializeClient(){
++        SodiumClientMod.onInitialization("0.2.2");
++
++        //FabricLoader.getInstance()
++        //        .getEntrypoints("frex_flawless_frames", Consumer.class)
++        //        .forEach(api -> api.accept());
++        Renderer.register(SodiumRenderer.INSTANCE);
++    }
++    
++    public static Hooks getInstance(){
++        return new Hooks();
 +    }
 +}

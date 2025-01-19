@@ -1,10 +1,11 @@
 --- a/net/minecraft/client/renderer/texture/TextureAtlas.java
 +++ b/net/minecraft/client/renderer/texture/TextureAtlas.java
-@@ -13,13 +_,15 @@
+@@ -13,13 +_,16 @@
  import java.util.Map;
  import java.util.Map.Entry;
  import javax.annotation.Nullable;
 +
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteFinderCache;
 +import net.fabricmc.fabric.impl.renderer.SpriteFinderImpl;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
@@ -25,10 +26,13 @@
  
      public TextureAtlas(ResourceLocation location) {
          this.location = location;
-@@ -79,6 +_,7 @@
+@@ -79,6 +_,10 @@
              this.sprites = List.copyOf(list);
              this.animatedTextures = List.copyOf(list1);
          }
++        if (this.location.equals(LOCATION_BLOCKS)) {
++            SpriteFinderCache.resetSpriteFinder();
++        }
 +        fabric_spriteFinder = null;
      }
  

@@ -1,20 +1,19 @@
 --- a/net/minecraft/client/renderer/block/ModelBlockRenderer.java
 +++ b/net/minecraft/client/renderer/block/ModelBlockRenderer.java
-@@ -7,6 +_,8 @@
+@@ -7,6 +_,7 @@
  import java.util.BitSet;
  import java.util.List;
  import javax.annotation.Nullable;
 +
-+import net.fabricmc.fabric.impl.client.indigo.renderer.render.BlockRenderContext;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
  import net.minecraft.ReportedException;
-@@ -31,38 +_,32 @@
+@@ -31,23 +_,12 @@
      private final BlockColors blockColors;
      private static final int CACHE_SIZE = 100;
      static final ThreadLocal<ModelBlockRenderer.Cache> CACHE = ThreadLocal.withInitial(ModelBlockRenderer.Cache::new);
 -
-+    private static final ThreadLocal<BlockRenderContext> CONTEXTS = ThreadLocal.withInitial(BlockRenderContext::new);
++    
      public ModelBlockRenderer(BlockColors blockColors) {
          this.blockColors = blockColors;
      }
@@ -31,42 +30,9 @@
 -        long seed,
 -        int packedOverlay
 -    ) {
--        boolean flag = Minecraft.useAmbientOcclusion() && state.getLightEmission() == 0 && model.useAmbientOcclusion();
--        poseStack.translate(state.getOffset(pos));
 +    public void tesselateBlock(BlockAndTintGetter level, BakedModel model, BlockState state, BlockPos pos, PoseStack poseStack, VertexConsumer consumer, boolean checkSides, RandomSource random, long seed, int packedOverlay) {
-+        //if (!model.isVanillaAdapter()) {
-+            CONTEXTS.get().render(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
-+        //}
-+        if(false){
-+            boolean flag = Minecraft.useAmbientOcclusion() && state.getLightEmission() == 0 && model.useAmbientOcclusion();
-+            poseStack.translate(state.getOffset(pos));
- 
--        try {
--            if (flag) {
--                this.tesselateWithAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
--            } else {
--                this.tesselateWithoutAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
-+            try {
-+                if (flag) {
-+                    this.tesselateWithAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
-+                } else {
-+                    this.tesselateWithoutAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
-+                }
-+            } catch (Throwable var16) {
-+                CrashReport crashReport = CrashReport.forThrowable(var16, "Tesselating block model");
-+                CrashReportCategory crashReportCategory = crashReport.addCategory("Block model being tesselated");
-+                CrashReportCategory.populateBlockDetails(crashReportCategory, level, pos, state);
-+                crashReportCategory.setDetail("Using AO", flag);
-+                throw new ReportedException(crashReport);
-             }
--        } catch (Throwable var16) {
--            CrashReport crashReport = CrashReport.forThrowable(var16, "Tesselating block model");
--            CrashReportCategory crashReportCategory = crashReport.addCategory("Block model being tesselated");
--            CrashReportCategory.populateBlockDetails(crashReportCategory, level, pos, state);
--            crashReportCategory.setDetail("Using AO", flag);
--            throw new ReportedException(crashReport);
-         }
-     }
+         boolean flag = Minecraft.useAmbientOcclusion() && state.getLightEmission() == 0 && model.useAmbientOcclusion();
+         poseStack.translate(state.getOffset(pos));
  
 @@ -215,7 +_,7 @@
          );

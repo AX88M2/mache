@@ -1,28 +1,23 @@
 --- a/net/minecraft/client/renderer/entity/ItemRenderer.java
 +++ b/net/minecraft/client/renderer/entity/ItemRenderer.java
-@@ -5,8 +_,11 @@
+@@ -5,6 +_,7 @@
  import com.mojang.blaze3d.vertex.VertexConsumer;
  import com.mojang.blaze3d.vertex.VertexMultiConsumer;
  import com.mojang.math.MatrixUtil;
 +
  import java.util.List;
  import javax.annotation.Nullable;
-+
-+import net.fabricmc.fabric.impl.client.indigo.renderer.render.ItemRenderContext;
  import net.minecraft.client.Minecraft;
- import net.minecraft.client.renderer.MultiBufferSource;
- import net.minecraft.client.renderer.RenderType;
-@@ -36,7 +_,8 @@
+@@ -36,7 +_,7 @@
      public static final int NO_TINT = -1;
      private final ItemModelResolver resolver;
      private final ItemStackRenderState scratchItemStackRenderState = new ItemStackRenderState();
 -
-+    private static final ThreadLocal<ItemRenderContext> CONTEXTS = ThreadLocal.withInitial(ItemRenderContext::new);
 +    
      public ItemRenderer(ItemModelResolver resolver) {
          this.resolver = resolver;
      }
-@@ -54,32 +_,29 @@
+@@ -54,17 +_,7 @@
          renderQuadList(poseStack, buffer, model.getQuads(null, null, randomSource), tintLayers, packedLight, packedOverlay);
      }
  
@@ -37,44 +32,10 @@
 -        RenderType renderType,
 -        ItemStackRenderState.FoilType foilType
 -    ) {
--        VertexConsumer compassFoilBuffer;
--        if (foilType == ItemStackRenderState.FoilType.SPECIAL) {
--            PoseStack.Pose pose = poseStack.last().copy();
--            if (displayContext == ItemDisplayContext.GUI) {
--                MatrixUtil.mulComponentWise(pose.pose(), 0.5F);
--            } else if (displayContext.firstPerson()) {
--                MatrixUtil.mulComponentWise(pose.pose(), 0.75F);
 +    public static void renderItem(ItemDisplayContext displayContext, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay, int[] tintLayers, BakedModel model, RenderType renderType, ItemStackRenderState.FoilType foilType) {
-+        //TODO: Понять в чём тут проблема
-+        
-+        //if (!model.isVanillaAdapter()) {
-+            CONTEXTS.get().render(displayContext, poseStack, bufferSource, packedLight, packedOverlay, tintLayers, model, renderType, foilType);
-+        //}
-+        if(false){
-+            VertexConsumer compassFoilBuffer;
-+            if (foilType == ItemStackRenderState.FoilType.SPECIAL) {
-+                PoseStack.Pose pose = poseStack.last().copy();
-+                if (displayContext == ItemDisplayContext.GUI) {
-+                    MatrixUtil.mulComponentWise(pose.pose(), 0.5F);
-+                } else if (displayContext.firstPerson()) {
-+                    MatrixUtil.mulComponentWise(pose.pose(), 0.75F);
-+                }
-+
-+                compassFoilBuffer = getCompassFoilBuffer(bufferSource, renderType, pose);
-+            } else {
-+                compassFoilBuffer = getFoilBuffer(bufferSource, renderType, true, foilType != ItemStackRenderState.FoilType.NONE);
-             }
- 
--            compassFoilBuffer = getCompassFoilBuffer(bufferSource, renderType, pose);
--        } else {
--            compassFoilBuffer = getFoilBuffer(bufferSource, renderType, true, foilType != ItemStackRenderState.FoilType.NONE);
-+            renderModelLists(model, tintLayers, packedLight, packedOverlay, poseStack, compassFoilBuffer);
-         }
--
--        renderModelLists(model, tintLayers, packedLight, packedOverlay, poseStack, compassFoilBuffer);
-     }
- 
-     public static VertexConsumer getArmorFoilBuffer(MultiBufferSource bufferSource, RenderType renderType, boolean hasFoil) {
+         VertexConsumer compassFoilBuffer;
+         if (foilType == ItemStackRenderState.FoilType.SPECIAL) {
+             PoseStack.Pose pose = poseStack.last().copy();
 @@ -88,7 +_,7 @@
              : bufferSource.getBuffer(renderType);
      }

@@ -1,22 +1,122 @@
 --- a/net/minecraft/client/Minecraft.java
 +++ b/net/minecraft/client/Minecraft.java
-@@ -62,6 +_,8 @@
+@@ -56,12 +_,16 @@
+ import java.util.Set;
+ import java.util.UUID;
+ import java.util.concurrent.CompletableFuture;
+-import java.util.concurrent.CompletionStage;
+ import java.util.concurrent.atomic.AtomicReference;
+ import java.util.function.Consumer;
  import java.util.function.Function;
  import java.util.function.Supplier;
  import javax.annotation.Nullable;
 +
++import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 +import me.milesglitch.client.Hooks;
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
++import net.caffeinemc.mods.sodium.client.checks.ResourcePackScanner;
  import net.minecraft.ChatFormatting;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
-@@ -434,6 +_,7 @@
+@@ -241,6 +_,7 @@
+ import net.minecraft.world.phys.EntityHitResult;
+ import net.minecraft.world.phys.HitResult;
+ import org.apache.commons.io.FileUtils;
++import org.lwjgl.opengl.GL32C;
+ import org.lwjgl.util.tinyfd.TinyFileDialogs;
+ import org.slf4j.Logger;
+ 
+@@ -390,6 +_,7 @@
+     private boolean gameLoadFinished;
+     private final long clientStartTimeMs;
+     private long clientTickCount;
++    private final LongArrayFIFOQueue fences = new LongArrayFIFOQueue();
+ 
+     public Minecraft(final GameConfig gameConfig) {
+         super("Client");
+@@ -434,6 +_,13 @@
          KeybindResolver.setKeyResolver(KeyMapping::createNameSupplier);
          this.fixerUpper = DataFixers.getDataFixer();
          this.toastManager = new ToastManager(this);
-+        Hooks.startClient();
++        try {
++            FileUtil.createDirectoriesSafe(Minecraft.getInstance().gameDirectory.getAbsoluteFile().toPath().resolve("config").resolve("fabric"));
++        } catch (IOException e) {
++            throw new RuntimeException(e);
++        }
++        Hooks.getInstance().onInitialize();
++        Hooks.getInstance().onInitializeClient();
          this.gameThread = Thread.currentThread();
          this.options = new Options(this, this.gameDirectory);
          RenderSystem.setShaderGlintAlpha(this.options.glintStrength().get());
+@@ -679,7 +_,7 @@
+             Screen screen = function.apply(runnable);
+             runnable = () -> this.setScreen(screen);
+         }
+-
++        ResourcePackScanner.checkIfCoreShaderLoaded(this.resourceManager);
+         return runnable;
+     }
+ 
+@@ -929,7 +_,9 @@
+     }
+ 
+     public CompletableFuture<Void> reloadResourcePacks() {
+-        return this.reloadResourcePacks(false, null);
++        CompletableFuture var10000 = this.reloadResourcePacks(false, (GameLoadCookie)null);
++        ResourcePackScanner.checkIfCoreShaderLoaded(this.resourceManager);
++        return var10000;
+     }
+ 
+     private CompletableFuture<Void> reloadResourcePacks(boolean error, @Nullable Minecraft.GameLoadCookie gameLoadCookie) {
+@@ -1161,6 +_,34 @@
+     }
+ 
+     private void runTick(boolean renderLevel) {
++        ProfilerFiller profiler = Profiler.get();
++        profiler.push("wait_for_gpu");
++
++        while (this.fences.size() > SodiumClientMod.options().advanced.cpuRenderAheadLimit) {
++            var fence = this.fences.dequeueLong();
++            // We do a ClientWaitSync here instead of a WaitSync to not allow the CPU to get too far ahead of the GPU.
++            // This is also needed to make sure that our persistently-mapped staging buffers function correctly, rather
++            // than being overwritten by data meant for future frames before the current one has finished rendering on
++            // the GPU.
++            //
++            // Because we use GL_SYNC_FLUSH_COMMANDS_BIT, a flush will be inserted at some point in the command stream
++            // (the stream of commands the GPU and/or driver (aka. the "server") is processing).
++            // In OpenGL 4.4 contexts and below, the flush will be inserted *right before* the call to ClientWaitSync.
++            // In OpenGL 4.5 contexts and above, the flush will be inserted *right after* the call to FenceSync (the
++            // creation of the fence).
++            // The flush, when the server reaches it in the command stream and processes it, tells the server that it
++            // must *finish execution* of all the commands that have already been processed in the command stream,
++            // and only after everything before the flush is done is it allowed to start processing and executing
++            // commands after the flush.
++            // Because we are also waiting on the client for the FenceSync to finish, the flush is effectively treated
++            // like a Finish command, where we know that once ClientWaitSync returns, it's likely that everything
++            // before it has been completed by the GPU.
++            GL32C.glClientWaitSync(fence, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, Long.MAX_VALUE);
++            GL32C.glDeleteSync(fence);
++        }
++
++        profiler.pop();
++        
+         this.window.setErrorSection("Pre render");
+         if (this.window.shouldClose()) {
+             this.stop();
+@@ -1298,6 +_,13 @@
+         }
+ 
+         profilerFiller.pop();
++
++        long fence = GL32C.glFenceSync(37143, 0);
++        if (fence == 0L) {
++            throw new RuntimeException("Failed to create fence object");
++        } else {
++            this.fences.enqueue(fence);
++        }
+     }
+ 
+     private ProfilerFiller constructProfiler(boolean renderFpsPie, @Nullable SingleTickProfiler singleTickProfiler) {
 @@ -2296,7 +_,7 @@
      }
  

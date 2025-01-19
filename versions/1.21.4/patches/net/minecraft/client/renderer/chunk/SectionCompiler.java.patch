@@ -1,6 +1,6 @@
 --- a/net/minecraft/client/renderer/chunk/SectionCompiler.java
 +++ b/net/minecraft/client/renderer/chunk/SectionCompiler.java
-@@ -1,18 +_,16 @@
+@@ -1,18 +_,13 @@
  package net.minecraft.client.renderer.chunk;
  
 -import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -18,9 +18,6 @@
  import java.util.Map.Entry;
  import javax.annotation.Nullable;
 +
-+import net.fabricmc.fabric.impl.client.indigo.Indigo;
-+import net.fabricmc.fabric.impl.client.indigo.renderer.accessor.AccessChunkRendererRegion;
-+import net.fabricmc.fabric.impl.client.indigo.renderer.render.TerrainRenderContext;
  import net.minecraft.client.renderer.ItemBlockRenderTypes;
  import net.minecraft.client.renderer.RenderType;
  import net.minecraft.client.renderer.SectionBufferBuilderPack;
@@ -47,38 +44,17 @@
          SectionCompiler.Results results = new SectionCompiler.Results();
          BlockPos blockPos = sectionPos.origin();
          BlockPos blockPos1 = blockPos.offset(15, 15, 15);
-@@ -49,6 +_,10 @@
+@@ -48,7 +_,7 @@
+         ModelBlockRenderer.enableCaching();
          Map<RenderType, BufferBuilder> map = new Reference2ObjectArrayMap<>(RenderType.chunkBufferLayers().size());
          RandomSource randomSource = RandomSource.create();
- 
-+        TerrainRenderContext renderer = (TerrainRenderContext)TerrainRenderContext.POOL.get();
-+        renderer.prepare(region, (layer) -> this.getOrBeginLayer(map, sectionBufferBuilderPack, layer));
-+        ((AccessChunkRendererRegion)region).fabric_setRenderer(renderer);
+-
 +        
          for (BlockPos blockPos2 : BlockPos.betweenClosed(blockPos, blockPos1)) {
              BlockState blockState = region.getBlockState(blockPos2);
              if (blockState.isSolidRender()) {
-@@ -78,7 +_,13 @@
-                     (float)SectionPos.sectionRelative(blockPos2.getY()),
-                     (float)SectionPos.sectionRelative(blockPos2.getZ())
-                 );
--                this.blockRenderer.renderBatched(blockState, blockPos2, region, poseStack, orBeginLayer, true, randomSource);
-+                //this.blockRenderer.renderBatched(blockState, blockPos2, region, poseStack, orBeginLayer, true, randomSource);
-+                BakedModel model = this.blockRenderer.getBlockModel(blockState);
-+                if (!Indigo.ALWAYS_TESSELATE_INDIGO && model.isVanillaAdapter()) {
-+                    this.blockRenderer.renderBatched(blockState, blockPos2, region, poseStack, orBeginLayer, true, randomSource);
-+                } else {
-+                    ((AccessChunkRendererRegion)region).fabric_getRenderer().tessellateBlock(blockState, blockPos2, model, poseStack);
-+                }
-                 poseStack.popPose();
-             }
-         }
-@@ -97,9 +_,11 @@
- 
-         ModelBlockRenderer.clearCache();
+@@ -99,7 +_,7 @@
          results.visibilitySet = visGraph.resolve();
-+        ((AccessChunkRendererRegion) region).fabric_getRenderer().release();
-+        ((AccessChunkRendererRegion) region).fabric_setRenderer(null);
          return results;
      }
 -
