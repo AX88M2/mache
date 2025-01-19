@@ -1,0 +1,11 @@
+--- a/com/mojang/blaze3d/systems/RenderSystem.java
++++ b/com/mojang/blaze3d/systems/RenderSystem.java
+@@ -136,7 +_,7 @@
+     }
+ 
+     public static void flipFrame(long window, @Nullable TracyFrameCapture tracyFrameCapture) {
+-        pollEvents();
++        //pollEvents();
+         replayQueue();
+         Tesselator.getInstance().clear();
+         GLFW.glfwSwapBuffers(window);

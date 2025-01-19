@@ -1,0 +1,67 @@
+--- a/com/mojang/blaze3d/vertex/BufferBuilder.java
++++ b/com/mojang/blaze3d/vertex/BufferBuilder.java
+@@ -3,11 +_,17 @@
+ import java.nio.ByteOrder;
+ import java.util.stream.Collectors;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.api.memory.MemoryIntrinsics;
++import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
++import net.caffeinemc.mods.sodium.api.vertex.serializer.VertexSerializerRegistry;
++import net.caffeinemc.mods.sodium.client.render.vertex.buffer.BufferBuilderExtension;
+ import net.minecraft.util.ARGB;
+ import net.minecraft.util.Mth;
++import org.lwjgl.system.MemoryStack;
+ import org.lwjgl.system.MemoryUtil;
+ 
+-public class BufferBuilder implements VertexConsumer {
++public class BufferBuilder implements VertexConsumer, VertexBufferWriter, BufferBuilderExtension {
+     private static final long NOT_BUILDING = -1L;
+     private static final long UNKNOWN_ELEMENT = -1L;
+     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
+@@ -263,5 +_,45 @@
+         } else {
+             VertexConsumer.super.addVertex(x, y, z, color, u, v, packedOverlay, packedLight, normalX, normalY, normalZ);
+         }
++    }
++
++    @Override
++    public void sodium$duplicateVertex() {
++        if (this.vertices == 0) {
++            return;
++        }
++
++        long head = this.buffer.reserve(this.vertexSize);
++        MemoryIntrinsics.copyMemory(head - this.vertexSize, head, this.vertexSize);
++
++        this.vertices++;
++    }
++
++    @Override
++    public void push(MemoryStack stack, long src, int count, VertexFormat format) {
++        var length = count * this.vertexSize;
++
++        // The buffer may change in the even, so we need to make sure that the
++        // pointer is retrieved *after* the resize
++        var dst = this.buffer.reserve(length);
++
++        if (format == this.format) {
++            // The layout is the same, so we can just perform a memory copy
++            // The stride of a vertex format is always 4 bytes, so this aligned copy is always safe
++            MemoryIntrinsics.copyMemory(src, dst, length);
++        } else {
++            // The layout differs, so we need to perform a conversion on the vertex data
++            this.copySlow(src, dst, count, format);
++        }
++
++        this.vertices += count;
++        this.vertexPointer = (dst + length) - vertexSize;
++        this.elementsToFill = 0;
++    }
++    
++    private void copySlow(long src, long dst, int count, VertexFormat format) {
++        VertexSerializerRegistry.instance()
++                .get(format, this.format)
++                .serialize(src, dst, count);
+     }
+ }
