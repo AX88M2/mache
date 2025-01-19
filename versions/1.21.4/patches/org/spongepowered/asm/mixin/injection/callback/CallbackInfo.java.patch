@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/org/spongepowered/asm/mixin/injection/callback/CallbackInfo.java
-@@ -1,0 +_,68 @@
+@@ -1,0 +_,67 @@
 +package org.spongepowered.asm.mixin.injection.callback;
 +
 +import java.util.concurrent.CancellationException;
@@ -68,4 +68,3 @@
 +        return CallbackInfo.class.getName();
 +    }
 +}
-+

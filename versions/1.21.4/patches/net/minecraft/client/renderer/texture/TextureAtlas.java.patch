@@ -37,9 +37,17 @@
      }
  
      @Override
-@@ -156,5 +_,17 @@
+@@ -150,11 +_,23 @@
+         return this.maxSupportedTextureSize;
+     }
  
-     int getHeight() {
+-    int getWidth() {
++    public int getWidth() {
+         return this.width;
+     }
+ 
+-    int getHeight() {
++    public int getHeight() {
          return this.height;
 +    }
 +

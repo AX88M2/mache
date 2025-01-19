@@ -1,0 +1,13 @@
+--- a/net/minecraft/client/renderer/entity/EntityRenderer.java
++++ b/net/minecraft/client/renderer/entity/EntityRenderer.java
+@@ -86,6 +_,10 @@
+     protected AABB getBoundingBoxForCulling(T minecraft) {
+         return minecraft.getBoundingBox();
+     }
++    
++    public AABB getCullingBox(T entity){
++        return getBoundingBoxForCulling(entity);
++    }
+ 
+     protected boolean affectedByCulling(T display) {
+         return true;

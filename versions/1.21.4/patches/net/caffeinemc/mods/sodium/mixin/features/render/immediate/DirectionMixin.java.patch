@@ -1,10 +1,9 @@
 --- /dev/null
 +++ b/net/caffeinemc/mods/sodium/mixin/features/render/immediate/DirectionMixin.java
-@@ -1,0 +_,73 @@
+@@ -1,0 +_,72 @@
 +package net.caffeinemc.mods.sodium.mixin.features.render.immediate;
 +
 +import com.mojang.blaze3d.vertex.SheetedDecalTextureGenerator;
-+import net.caffeinemc.mods.sodium.mixin.core.render.immediate.consumer.SheetedDecalTextureGeneratorMixin;
 +import net.minecraft.client.renderer.block.model.BlockModel;
 +import net.minecraft.client.renderer.block.model.FaceBakery;
 +import net.minecraft.core.Direction;
