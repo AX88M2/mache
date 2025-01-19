@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/render/vertex/VertexFormatAttribute.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.render.vertex;
++
++import net.caffeinemc.mods.sodium.client.gl.attribute.GlVertexAttributeFormat;
++
++public record VertexFormatAttribute(String name, GlVertexAttributeFormat format, int count, boolean normalized, boolean intType) {
++
++}

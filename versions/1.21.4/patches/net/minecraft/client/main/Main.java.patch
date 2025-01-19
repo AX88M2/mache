@@ -1,0 +1,18 @@
+--- a/net/minecraft/client/main/Main.java
++++ b/net/minecraft/client/main/Main.java
+@@ -29,6 +_,7 @@
+ import joptsimple.OptionParser;
+ import joptsimple.OptionSet;
+ import joptsimple.OptionSpec;
++import me.milesglitch.client.Hooks;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.DefaultUncaughtExceptionHandler;
+@@ -55,6 +_,7 @@
+ public class Main {
+     @DontObfuscate
+     public static void main(String[] args) {
++        Hooks.getInstance().onPreLaunch();
+         OptionParser optionParser = new OptionParser();
+         optionParser.allowsUnrecognizedOptions();
+         optionParser.accepts("demo");

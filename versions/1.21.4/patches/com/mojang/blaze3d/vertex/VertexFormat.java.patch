@@ -1,0 +1,45 @@
+--- a/com/mojang/blaze3d/vertex/VertexFormat.java
++++ b/com/mojang/blaze3d/vertex/VertexFormat.java
+@@ -7,11 +_,14 @@
+ import com.mojang.blaze3d.systems.RenderSystem;
+ import it.unimi.dsi.fastutil.ints.IntArrayList;
+ import it.unimi.dsi.fastutil.ints.IntList;
++import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatExtensions;
++import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatRegistry;
++
+ import java.util.Arrays;
+ import java.util.List;
+ import javax.annotation.Nullable;
+ 
+-public class VertexFormat {
++public class VertexFormat implements VertexFormatExtensions {
+     public static final int UNKNOWN_ELEMENT = -1;
+     private final List<VertexFormatElement> elements;
+     private final List<String> names;
+@@ -20,6 +_,7 @@
+     private final int[] offsetsByElement = new int[32];
+     @Nullable
+     private VertexBuffer immediateDrawVertexBuffer;
++    private int sodium$globalId;
+ 
+     VertexFormat(List<VertexFormatElement> elements, List<String> names, IntList offsets, int vertexSize) {
+         this.elements = elements;
+@@ -32,6 +_,7 @@
+             int i1 = vertexFormatElement != null ? elements.indexOf(vertexFormatElement) : -1;
+             this.offsetsByElement[i] = i1 != -1 ? offsets.getInt(i1) : -1;
+         }
++        this.sodium$globalId = VertexFormatRegistry.instance().allocateGlobalId(this);
+     }
+ 
+     public static VertexFormat.Builder builder() {
+@@ -130,6 +_,10 @@
+         }
+ 
+         return vertexBuffer;
++    }
++
++    public int sodium$getGlobalId() {
++        return this.sodium$globalId;
+     }
+ 
+     public static class Builder {

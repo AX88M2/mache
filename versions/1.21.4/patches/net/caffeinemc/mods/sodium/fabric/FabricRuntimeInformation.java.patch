@@ -1,0 +1,46 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/fabric/FabricRuntimeInformation.java
+@@ -1,0 +_,43 @@
++package net.caffeinemc.mods.sodium.fabric;
++
++import net.caffeinemc.mods.sodium.client.services.PlatformRuntimeInformation;
++import net.minecraft.client.Minecraft;
++
++import java.nio.file.Path;
++
++public class FabricRuntimeInformation implements PlatformRuntimeInformation {
++    @Override
++    public boolean isDevelopmentEnvironment() {
++        return true;
++    }
++
++    @Override
++    public Path getGameDirectory() {
++        return Minecraft.getInstance().gameDirectory.toPath();
++    }
++
++    @Override
++    public Path getConfigDirectory() {
++        return Minecraft.getInstance().gameDirectory.toPath().resolve("config");
++    }
++
++    @Override
++    public boolean platformHasEarlyLoadingScreen() {
++        return false;
++    }
++
++    @Override
++    public boolean platformUsesRefmap() {
++        return true;
++    }
++
++    @Override
++    public boolean isModInLoadingList(String modId) {
++        return false;
++    }
++
++    @Override
++    public boolean usesAlphaMultiplication() {
++        return false;
++    }
++}

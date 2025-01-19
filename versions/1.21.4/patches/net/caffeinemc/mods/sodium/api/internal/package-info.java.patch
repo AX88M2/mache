@@ -1,0 +1,7 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/api/internal/package-info.java
+@@ -1,0 +_,4 @@
++@ApiStatus.Internal
++package net.caffeinemc.mods.sodium.api.internal;
++
++import org.jetbrains.annotations.ApiStatus;

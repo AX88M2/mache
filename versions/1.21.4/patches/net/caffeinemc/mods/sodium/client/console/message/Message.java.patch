@@ -1,0 +1,8 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/console/message/Message.java
+@@ -1,0 +_,5 @@
++package net.caffeinemc.mods.sodium.client.console.message;
++
++public record Message(MessageLevel level, String text, boolean translated, double duration) {
++
++}

@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/util/collections/ReadQueue.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.util.collections;
++
++import org.jetbrains.annotations.Nullable;
++
++public interface ReadQueue<E> {
++    @Nullable E dequeue();
++}

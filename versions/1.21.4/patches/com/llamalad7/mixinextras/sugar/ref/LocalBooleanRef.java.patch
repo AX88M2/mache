@@ -1,0 +1,11 @@
+--- /dev/null
++++ b/com/llamalad7/mixinextras/sugar/ref/LocalBooleanRef.java
+@@ -1,0 +_,8 @@
++package com.llamalad7.mixinextras.sugar.ref;
++
++public interface LocalBooleanRef {
++    boolean get();
++
++    void set(boolean var1);
++}
++

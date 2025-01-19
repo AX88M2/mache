@@ -1,0 +1,8 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/platform/NativeWindowHandle.java
+@@ -1,0 +_,5 @@
++package net.caffeinemc.mods.sodium.client.platform;
++
++public interface NativeWindowHandle {
++    long getWin32Handle();
++}

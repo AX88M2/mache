@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/render/frapi/render/AmbientOcclusionMode.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.render.frapi.render;
++
++public enum AmbientOcclusionMode {
++    ENABLED,
++    DEFAULT,
++    DISABLED
++}

@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/console/message/MessageLevel.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.console.message;
++
++public enum MessageLevel {
++    INFO,
++    WARN,
++    SEVERE
++}

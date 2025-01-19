@@ -1,0 +1,118 @@
+--- a/com/mojang/blaze3d/platform/Window.java
++++ b/com/mojang/blaze3d/platform/Window.java
+@@ -12,26 +_,33 @@
+ import java.util.Optional;
+ import java.util.function.BiConsumer;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
++import net.caffeinemc.mods.sodium.client.compatibility.checks.ModuleScanner;
++import net.caffeinemc.mods.sodium.client.compatibility.checks.PostLaunchChecks;
++import net.caffeinemc.mods.sodium.client.compatibility.environment.GlContextInfo;
++import net.caffeinemc.mods.sodium.client.compatibility.workarounds.Workarounds;
++import net.caffeinemc.mods.sodium.client.compatibility.workarounds.nvidia.NvidiaWorkarounds;
++import net.caffeinemc.mods.sodium.client.platform.NativeWindowHandle;
++import net.caffeinemc.mods.sodium.client.services.PlatformRuntimeInformation;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.ReportedException;
++import net.minecraft.Util;
+ import net.minecraft.client.main.SilentInitException;
+ import net.minecraft.server.packs.PackResources;
+ import net.minecraft.server.packs.resources.IoSupplier;
+ import org.lwjgl.PointerBuffer;
+-import org.lwjgl.glfw.Callbacks;
+-import org.lwjgl.glfw.GLFW;
+-import org.lwjgl.glfw.GLFWErrorCallback;
+-import org.lwjgl.glfw.GLFWImage;
+-import org.lwjgl.glfw.GLFWWindowCloseCallback;
++import org.lwjgl.glfw.*;
+ import org.lwjgl.glfw.GLFWImage.Buffer;
+ import org.lwjgl.opengl.GL;
++import org.lwjgl.opengl.WGL;
+ import org.lwjgl.system.MemoryStack;
+ import org.lwjgl.system.MemoryUtil;
+ import org.lwjgl.util.tinyfd.TinyFileDialogs;
+ import org.slf4j.Logger;
+ 
+-public final class Window implements AutoCloseable {
++public final class Window implements AutoCloseable, NativeWindowHandle {
+     private static final Logger LOGGER = LogUtils.getLogger();
+     public static final int BASE_WIDTH = 320;
+     public static final int BASE_HEIGHT = 240;
+@@ -60,6 +_,7 @@
+     private boolean vsync;
+     private boolean iconified;
+     private boolean minimized;
++    private long wglPrevContext = MemoryUtil.NULL;
+ 
+     public Window(
+         WindowEventHandler eventHandler, ScreenManager screenManager, DisplayData displayData, @Nullable String preferredFullscreenVideoMode, String title
+@@ -90,7 +_,17 @@
+         GLFW.glfwWindowHint(139267, 2);
+         GLFW.glfwWindowHint(139272, 204801);
+         GLFW.glfwWindowHint(139270, 1);
+-        this.window = GLFW.glfwCreateWindow(this.width, this.height, title, this.fullscreen && monitor != null ? monitor.getMonitor() : 0L, 0L);
++        if (!PlatformRuntimeInformation.getInstance().platformHasEarlyLoadingScreen() && SodiumClientMod.options().performance.useNoErrorGLContext && !Workarounds.isWorkaroundEnabled(Workarounds.Reference.NO_ERROR_CONTEXT_UNSUPPORTED)) {
++            GLFW.glfwWindowHint(139274, 1);
++        }
++        
++        NvidiaWorkarounds.applyEnvironmentChanges();
++        try {
++            this.window = GLFW.glfwCreateWindow(width, height, title, this.fullscreen && monitor != null ? monitor.getMonitor() : 0L, 0L);
++        } finally {
++            NvidiaWorkarounds.undoEnvironmentChanges();
++        }
++        
+         if (monitor != null) {
+             VideoMode preferredVidMode = monitor.getPreferredVidMode(this.fullscreen ? this.preferredFullscreenVideoMode : Optional.empty());
+             this.windowedX = this.x = monitor.getX() + preferredVidMode.getWidth() / 2 - this.width / 2;
+@@ -105,6 +_,19 @@
+ 
+         GLFW.glfwMakeContextCurrent(this.window);
+         GL.createCapabilities();
++
++        GlContextInfo context = GlContextInfo.create();
++        LOGGER.info("OpenGL Vendor: {}", context.vendor());
++        LOGGER.info("OpenGL Renderer: {}", context.renderer());
++        LOGGER.info("OpenGL Version: {}", context.version());
++        if (Util.getPlatform() == Util.OS.WINDOWS) {
++            this.wglPrevContext = WGL.wglGetCurrentContext();
++        } else {
++            this.wglPrevContext = 0L;
++        }
++
++        PostLaunchChecks.onContextInitialized(this, context);
++        ModuleScanner.checkModules(this);
+         int i = RenderSystem.maxSupportedTextureSize();
+         GLFW.glfwSetWindowSizeLimits(this.window, -1, -1, i, i);
+         this.setMode();
+@@ -297,6 +_,16 @@
+ 
+     public void updateDisplay(@Nullable TracyFrameCapture tracyFrameCapture) {
+         RenderSystem.flipFrame(this.window, tracyFrameCapture);
++        
++        if (this.wglPrevContext != 0L) {
++            long context = WGL.wglGetCurrentContext();
++            if (this.wglPrevContext != context) {
++                LOGGER.warn("The OpenGL context appears to have been suddenly replaced! Something has likely just injected into the game process.");
++                ModuleScanner.checkModules(this);
++                this.wglPrevContext = context;
++            }
++        }
++        
+         if (this.fullscreen != this.actuallyFullscreen) {
+             this.actuallyFullscreen = this.fullscreen;
+             this.updateFullscreen(this.vsync, tracyFrameCapture);
+@@ -491,6 +_,11 @@
+ 
+     public boolean isMinimized() {
+         return this.minimized;
++    }
++
++    @Override
++    public long getWin32Handle() {
++        return GLFWNativeWin32.glfwGetWin32Window(this.window);
+     }
+ 
+     public static class WindowInitFailed extends SilentInitException {

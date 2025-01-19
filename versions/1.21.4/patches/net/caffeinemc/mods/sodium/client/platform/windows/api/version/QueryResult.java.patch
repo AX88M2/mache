@@ -1,0 +1,7 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/platform/windows/api/version/QueryResult.java
+@@ -1,0 +_,4 @@
++package net.caffeinemc.mods.sodium.client.platform.windows.api.version;
++
++public record QueryResult(long address, int length) {
++}

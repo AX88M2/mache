@@ -1,0 +1,8 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/render/viewport/frustum/Frustum.java
+@@ -1,0 +_,5 @@
++package net.caffeinemc.mods.sodium.client.render.viewport.frustum;
++
++public interface Frustum {
++    boolean testAab(float minX, float minY, float minZ, float maxX, float maxY, float maxZ);
++}

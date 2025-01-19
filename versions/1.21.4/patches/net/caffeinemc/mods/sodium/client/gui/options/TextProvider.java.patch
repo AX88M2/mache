@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/gui/options/TextProvider.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.gui.options;
++
++import net.minecraft.network.chat.Component;
++
++public interface TextProvider {
++    Component getLocalizedName();
++}

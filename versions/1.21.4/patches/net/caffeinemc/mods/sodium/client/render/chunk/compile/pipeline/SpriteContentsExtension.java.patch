@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/render/chunk/compile/pipeline/SpriteContentsExtension.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline;
++
++public interface SpriteContentsExtension {
++    boolean sodium$hasTransparentPixels();
++
++    boolean sodium$hasTranslucentPixels();
++}

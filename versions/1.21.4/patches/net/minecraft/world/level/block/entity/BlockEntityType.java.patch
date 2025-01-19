@@ -1,0 +1,61 @@
+--- a/net/minecraft/world/level/block/entity/BlockEntityType.java
++++ b/net/minecraft/world/level/block/entity/BlockEntityType.java
+@@ -3,6 +_,9 @@
+ import com.mojang.logging.LogUtils;
+ import java.util.Set;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.api.blockentity.BlockEntityRenderPredicate;
++import net.caffeinemc.mods.sodium.client.render.chunk.ExtendedBlockEntityType;
+ import net.minecraft.Util;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Holder;
+@@ -16,9 +_,10 @@
+ import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
+ import net.minecraft.world.level.block.piston.PistonMovingBlockEntity;
+ import net.minecraft.world.level.block.state.BlockState;
++import org.apache.commons.lang3.ArrayUtils;
+ import org.slf4j.Logger;
+ 
+-public class BlockEntityType<T extends BlockEntity> {
++public class BlockEntityType<T extends BlockEntity> implements ExtendedBlockEntityType<T> {
+     private static final Logger LOGGER = LogUtils.getLogger();
+     public static final BlockEntityType<FurnaceBlockEntity> FURNACE = register("furnace", FurnaceBlockEntity::new, Blocks.FURNACE);
+     public static final BlockEntityType<ChestBlockEntity> CHEST = register("chest", ChestBlockEntity::new, Blocks.CHEST);
+@@ -232,6 +_,7 @@
+     private final BlockEntityType.BlockEntitySupplier<? extends T> factory;
+     private final Set<Block> validBlocks;
+     private final Holder.Reference<BlockEntityType<?>> builtInRegistryHolder = BuiltInRegistries.BLOCK_ENTITY_TYPE.createIntrusiveHolder(this);
++    private BlockEntityRenderPredicate[] sodium$renderPredicates = new BlockEntityRenderPredicate[0];
+ 
+     @Nullable
+     public static ResourceLocation getKey(BlockEntityType<?> blockEntityType) {
+@@ -276,6 +_,28 @@
+ 
+     public boolean onlyOpCanSetNbt() {
+         return OP_ONLY_CUSTOM_DATA.contains(this);
++    }
++
++    @Override
++    public BlockEntityRenderPredicate<T>[] sodium$getRenderPredicates() {
++        return sodium$renderPredicates;
++    }
++
++    @Override
++    public void sodium$addRenderPredicate(BlockEntityRenderPredicate<T> predicate) {
++        sodium$renderPredicates = ArrayUtils.add(sodium$renderPredicates, predicate);
++    }
++
++    @Override
++    public boolean sodium$removeRenderPredicate(BlockEntityRenderPredicate<T> predicate) {
++        int index = ArrayUtils.indexOf(sodium$renderPredicates, predicate);
++
++        if (index == ArrayUtils.INDEX_NOT_FOUND) {
++            return false;
++        }
++
++        sodium$renderPredicates = ArrayUtils.remove(sodium$renderPredicates, index);
++        return true;
+     }
+ 
+     @FunctionalInterface

@@ -1,0 +1,504 @@
+--- a/net/minecraft/client/renderer/block/LiquidBlockRenderer.java
++++ b/net/minecraft/client/renderer/block/LiquidBlockRenderer.java
+@@ -1,6 +_,11 @@
+ package net.minecraft.client.renderer.block;
+ 
+ import com.mojang.blaze3d.vertex.VertexConsumer;
++import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandler;
++import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandlerRegistry;
++import net.fabricmc.fabric.impl.client.rendering.fluid.FluidRenderHandlerInfo;
++import net.fabricmc.fabric.impl.client.rendering.fluid.FluidRenderHandlerRegistryImpl;
++import net.fabricmc.fabric.impl.client.rendering.fluid.FluidRenderingImpl;
+ import net.minecraft.client.Minecraft;
+ import net.minecraft.client.renderer.BiomeColors;
+ import net.minecraft.client.renderer.LevelRenderer;
+@@ -21,12 +_,14 @@
+ import net.minecraft.world.phys.Vec3;
+ import net.minecraft.world.phys.shapes.Shapes;
+ import net.minecraft.world.phys.shapes.VoxelShape;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+ 
+ public class LiquidBlockRenderer {
+     private static final float MAX_FLUID_HEIGHT = 0.8888889F;
+     private final TextureAtlasSprite[] lavaIcons = new TextureAtlasSprite[2];
+     private final TextureAtlasSprite[] waterIcons = new TextureAtlasSprite[2];
+     private TextureAtlasSprite waterOverlay;
++    private final ThreadLocal<Block> fabric_neighborBlock = new ThreadLocal<>();
+ 
+     protected void setupSprites() {
+         this.lavaIcons[0] = Minecraft.getInstance().getModelManager().getBlockModelShaper().getBlockModel(Blocks.LAVA.defaultBlockState()).getParticleIcon();
+@@ -34,6 +_,7 @@
+         this.waterIcons[0] = Minecraft.getInstance().getModelManager().getBlockModelShaper().getBlockModel(Blocks.WATER.defaultBlockState()).getParticleIcon();
+         this.waterIcons[1] = ModelBakery.WATER_FLOW.sprite();
+         this.waterOverlay = ModelBakery.WATER_OVERLAY.sprite();
++        ((FluidRenderHandlerRegistryImpl) FluidRenderHandlerRegistry.INSTANCE).onFluidRendererReload(this, waterIcons, lavaIcons, waterOverlay);
+     }
+ 
+     private static boolean isNeighborSameFluid(FluidState firstState, FluidState secondState) {
+@@ -66,221 +_,244 @@
+     }
+ 
+     public void tesselate(BlockAndTintGetter level, BlockPos pos, VertexConsumer buffer, BlockState blockState, FluidState fluidState) {
+-        boolean isLava = fluidState.is(FluidTags.LAVA);
+-        TextureAtlasSprite[] textureAtlasSprites = isLava ? this.lavaIcons : this.waterIcons;
+-        int i = isLava ? 16777215 : BiomeColors.getAverageWaterColor(level, pos);
+-        float f = (i >> 16 & 0xFF) / 255.0F;
+-        float f1 = (i >> 8 & 0xFF) / 255.0F;
+-        float f2 = (i & 0xFF) / 255.0F;
+-        BlockState blockState1 = level.getBlockState(pos.relative(Direction.DOWN));
+-        FluidState fluidState1 = blockState1.getFluidState();
+-        BlockState blockState2 = level.getBlockState(pos.relative(Direction.UP));
+-        FluidState fluidState2 = blockState2.getFluidState();
+-        BlockState blockState3 = level.getBlockState(pos.relative(Direction.NORTH));
+-        FluidState fluidState3 = blockState3.getFluidState();
+-        BlockState blockState4 = level.getBlockState(pos.relative(Direction.SOUTH));
+-        FluidState fluidState4 = blockState4.getFluidState();
+-        BlockState blockState5 = level.getBlockState(pos.relative(Direction.WEST));
+-        FluidState fluidState5 = blockState5.getFluidState();
+-        BlockState blockState6 = level.getBlockState(pos.relative(Direction.EAST));
+-        FluidState fluidState6 = blockState6.getFluidState();
+-        boolean flag = !isNeighborSameFluid(fluidState, fluidState2);
+-        boolean flag1 = shouldRenderFace(fluidState, blockState, Direction.DOWN, fluidState1)
+-            && !isFaceOccludedByNeighbor(Direction.DOWN, 0.8888889F, blockState1);
+-        boolean shouldRenderFace = shouldRenderFace(fluidState, blockState, Direction.NORTH, fluidState3);
+-        boolean shouldRenderFace1 = shouldRenderFace(fluidState, blockState, Direction.SOUTH, fluidState4);
+-        boolean shouldRenderFace2 = shouldRenderFace(fluidState, blockState, Direction.WEST, fluidState5);
+-        boolean shouldRenderFace3 = shouldRenderFace(fluidState, blockState, Direction.EAST, fluidState6);
+-        if (flag || flag1 || shouldRenderFace3 || shouldRenderFace2 || shouldRenderFace || shouldRenderFace1) {
+-            float shade = level.getShade(Direction.DOWN, true);
+-            float shade1 = level.getShade(Direction.UP, true);
+-            float shade2 = level.getShade(Direction.NORTH, true);
+-            float shade3 = level.getShade(Direction.WEST, true);
+-            Fluid type = fluidState.getType();
+-            float height = this.getHeight(level, type, pos, blockState, fluidState);
+-            float f3;
+-            float f4;
+-            float f5;
+-            float f6;
+-            if (height >= 1.0F) {
+-                f3 = 1.0F;
+-                f4 = 1.0F;
+-                f5 = 1.0F;
+-                f6 = 1.0F;
+-            } else {
+-                float height1 = this.getHeight(level, type, pos.north(), blockState3, fluidState3);
+-                float height2 = this.getHeight(level, type, pos.south(), blockState4, fluidState4);
+-                float height3 = this.getHeight(level, type, pos.east(), blockState6, fluidState6);
+-                float height4 = this.getHeight(level, type, pos.west(), blockState5, fluidState5);
+-                f3 = this.calculateAverageHeight(level, type, height, height1, height3, pos.relative(Direction.NORTH).relative(Direction.EAST));
+-                f4 = this.calculateAverageHeight(level, type, height, height1, height4, pos.relative(Direction.NORTH).relative(Direction.WEST));
+-                f5 = this.calculateAverageHeight(level, type, height, height2, height3, pos.relative(Direction.SOUTH).relative(Direction.EAST));
+-                f6 = this.calculateAverageHeight(level, type, height, height2, height4, pos.relative(Direction.SOUTH).relative(Direction.WEST));
++        CallbackInfo ci = new CallbackInfo("tesselate", true);
++        
++        FluidRenderHandlerInfo info = FluidRenderingImpl.getCurrentInfo();
++        if (info.handler == null) {
++            FluidRenderHandler handler = FluidRenderHandlerRegistry.INSTANCE.get(fluidState.getType());
++
++            if (handler != null) {
++                handler.renderFluid(pos, level, buffer, blockState, fluidState);
++                ci.cancel();
+             }
+-
+-            float height1 = pos.getX() & 15;
+-            float height2 = pos.getY() & 15;
+-            float height3 = pos.getZ() & 15;
+-            float height4 = 0.001F;
+-            float f7 = flag1 ? 0.001F : 0.0F;
+-            if (flag && !isFaceOccludedByNeighbor(Direction.UP, Math.min(Math.min(f4, f6), Math.min(f5, f3)), blockState2)) {
+-                f4 -= 0.001F;
+-                f6 -= 0.001F;
+-                f5 -= 0.001F;
+-                f3 -= 0.001F;
+-                Vec3 flow = fluidState.getFlow(level, pos);
+-                float u;
+-                float f8;
+-                float u1;
+-                float f10;
+-                float v;
+-                float v1;
+-                float f9;
+-                float f11;
+-                if (flow.x == 0.0 && flow.z == 0.0) {
+-                    TextureAtlasSprite textureAtlasSprite = textureAtlasSprites[0];
+-                    u = textureAtlasSprite.getU(0.0F);
+-                    v = textureAtlasSprite.getV(0.0F);
+-                    f8 = u;
+-                    v1 = textureAtlasSprite.getV(1.0F);
+-                    u1 = textureAtlasSprite.getU(1.0F);
+-                    f9 = v1;
+-                    f10 = u1;
+-                    f11 = v;
++        }
++        
++        if(ci.isCancelled()){
++            boolean isLava = fluidState.is(FluidTags.LAVA);
++            TextureAtlasSprite[] textureAtlasSprites = isLava ? this.lavaIcons : this.waterIcons;
++            int i = isLava ? 16777215 : BiomeColors.getAverageWaterColor(level, pos);
++
++            i = info.handler != null ? info.handler.getFluidColor(level, pos, fluidState) : i;
++
++            float f = (i >> 16 & 0xFF) / 255.0F;
++            float f1 = (i >> 8 & 0xFF) / 255.0F;
++            float f2 = (i & 0xFF) / 255.0F;
++            BlockState blockState1 = level.getBlockState(pos.relative(Direction.DOWN));
++            FluidState fluidState1 = blockState1.getFluidState();
++            BlockState blockState2 = level.getBlockState(pos.relative(Direction.UP));
++            FluidState fluidState2 = blockState2.getFluidState();
++            BlockState blockState3 = level.getBlockState(pos.relative(Direction.NORTH));
++            FluidState fluidState3 = blockState3.getFluidState();
++            BlockState blockState4 = level.getBlockState(pos.relative(Direction.SOUTH));
++            FluidState fluidState4 = blockState4.getFluidState();
++            BlockState blockState5 = level.getBlockState(pos.relative(Direction.WEST));
++            FluidState fluidState5 = blockState5.getFluidState();
++            BlockState blockState6 = level.getBlockState(pos.relative(Direction.EAST));
++            FluidState fluidState6 = blockState6.getFluidState();
++
++            isLava = info.handler != null ? !info.hasOverlay : isLava;
++            textureAtlasSprites = info.handler != null ? info.sprites : textureAtlasSprites;
++
++            boolean flag = !isNeighborSameFluid(fluidState, fluidState2);
++            boolean flag1 = shouldRenderFace(fluidState, blockState, Direction.DOWN, fluidState1)
++                    && !isFaceOccludedByNeighbor(Direction.DOWN, MAX_FLUID_HEIGHT, blockState1);
++            boolean shouldRenderFace = shouldRenderFace(fluidState, blockState, Direction.NORTH, fluidState3);
++            boolean shouldRenderFace1 = shouldRenderFace(fluidState, blockState, Direction.SOUTH, fluidState4);
++            boolean shouldRenderFace2 = shouldRenderFace(fluidState, blockState, Direction.WEST, fluidState5);
++            boolean shouldRenderFace3 = shouldRenderFace(fluidState, blockState, Direction.EAST, fluidState6);
++            if (flag || flag1 || shouldRenderFace3 || shouldRenderFace2 || shouldRenderFace || shouldRenderFace1) {
++                float shade = level.getShade(Direction.DOWN, true);
++                float shade1 = level.getShade(Direction.UP, true);
++                float shade2 = level.getShade(Direction.NORTH, true);
++                float shade3 = level.getShade(Direction.WEST, true);
++                Fluid type = fluidState.getType();
++                float height = this.getHeight(level, type, pos, blockState, fluidState);
++                float f3;
++                float f4;
++                float f5;
++                float f6;
++                if (height >= 1.0F) {
++                    f3 = 1.0F;
++                    f4 = 1.0F;
++                    f5 = 1.0F;
++                    f6 = 1.0F;
+                 } else {
+-                    TextureAtlasSprite textureAtlasSprite = textureAtlasSprites[1];
+-                    float f12 = (float)Mth.atan2(flow.z, flow.x) - (float) (Math.PI / 2);
+-                    float f13 = Mth.sin(f12) * 0.25F;
+-                    float f14 = Mth.cos(f12) * 0.25F;
+-                    float f15 = 0.5F;
+-                    u = textureAtlasSprite.getU(0.5F + (-f14 - f13));
+-                    v = textureAtlasSprite.getV(0.5F + (-f14 + f13));
+-                    f8 = textureAtlasSprite.getU(0.5F + (-f14 + f13));
+-                    v1 = textureAtlasSprite.getV(0.5F + (f14 + f13));
+-                    u1 = textureAtlasSprite.getU(0.5F + (f14 + f13));
+-                    f9 = textureAtlasSprite.getV(0.5F + (f14 - f13));
+-                    f10 = textureAtlasSprite.getU(0.5F + (f14 - f13));
+-                    f11 = textureAtlasSprite.getV(0.5F + (-f14 - f13));
++                    float height1 = this.getHeight(level, type, pos.north(), blockState3, fluidState3);
++                    float height2 = this.getHeight(level, type, pos.south(), blockState4, fluidState4);
++                    float height3 = this.getHeight(level, type, pos.east(), blockState6, fluidState6);
++                    float height4 = this.getHeight(level, type, pos.west(), blockState5, fluidState5);
++                    f3 = this.calculateAverageHeight(level, type, height, height1, height3, pos.relative(Direction.NORTH).relative(Direction.EAST));
++                    f4 = this.calculateAverageHeight(level, type, height, height1, height4, pos.relative(Direction.NORTH).relative(Direction.WEST));
++                    f5 = this.calculateAverageHeight(level, type, height, height2, height3, pos.relative(Direction.SOUTH).relative(Direction.EAST));
++                    f6 = this.calculateAverageHeight(level, type, height, height2, height4, pos.relative(Direction.SOUTH).relative(Direction.WEST));
+                 }
+ 
+-                float f16 = (u + f8 + u1 + f10) / 4.0F;
+-                float f12 = (v + v1 + f9 + f11) / 4.0F;
+-                float f13 = textureAtlasSprites[0].uvShrinkRatio();
+-                u = Mth.lerp(f13, u, f16);
+-                f8 = Mth.lerp(f13, f8, f16);
+-                u1 = Mth.lerp(f13, u1, f16);
+-                f10 = Mth.lerp(f13, f10, f16);
+-                v = Mth.lerp(f13, v, f12);
+-                v1 = Mth.lerp(f13, v1, f12);
+-                f9 = Mth.lerp(f13, f9, f12);
+-                f11 = Mth.lerp(f13, f11, f12);
+-                int lightColor = this.getLightColor(level, pos);
+-                float f15 = shade1 * f;
+-                float f17 = shade1 * f1;
+-                float f18 = shade1 * f2;
+-                this.vertex(buffer, height1 + 0.0F, height2 + f4, height3 + 0.0F, f15, f17, f18, u, v, lightColor);
+-                this.vertex(buffer, height1 + 0.0F, height2 + f6, height3 + 1.0F, f15, f17, f18, f8, v1, lightColor);
+-                this.vertex(buffer, height1 + 1.0F, height2 + f5, height3 + 1.0F, f15, f17, f18, u1, f9, lightColor);
+-                this.vertex(buffer, height1 + 1.0F, height2 + f3, height3 + 0.0F, f15, f17, f18, f10, f11, lightColor);
+-                if (fluidState.shouldRenderBackwardUpFace(level, pos.above())) {
++                float height1 = pos.getX() & 15;
++                float height2 = pos.getY() & 15;
++                float height3 = pos.getZ() & 15;
++                float height4 = 0.001F;
++                float f7 = flag1 ? 0.001F : 0.0F;
++                if (flag && !isFaceOccludedByNeighbor(Direction.UP, Math.min(Math.min(f4, f6), Math.min(f5, f3)), blockState2)) {
++                    f4 -= 0.001F;
++                    f6 -= 0.001F;
++                    f5 -= 0.001F;
++                    f3 -= 0.001F;
++                    Vec3 flow = fluidState.getFlow(level, pos);
++                    float u;
++                    float f8;
++                    float u1;
++                    float f10;
++                    float v;
++                    float v1;
++                    float f9;
++                    float f11;
++                    if (flow.x == 0.0 && flow.z == 0.0) {
++                        TextureAtlasSprite textureAtlasSprite = textureAtlasSprites[0];
++                        u = textureAtlasSprite.getU(0.0F);
++                        v = textureAtlasSprite.getV(0.0F);
++                        f8 = u;
++                        v1 = textureAtlasSprite.getV(1.0F);
++                        u1 = textureAtlasSprite.getU(1.0F);
++                        f9 = v1;
++                        f10 = u1;
++                        f11 = v;
++                    } else {
++                        TextureAtlasSprite textureAtlasSprite = textureAtlasSprites[1];
++                        float f12 = (float)Mth.atan2(flow.z, flow.x) - (float) (Math.PI / 2);
++                        float f13 = Mth.sin(f12) * 0.25F;
++                        float f14 = Mth.cos(f12) * 0.25F;
++                        float f15 = 0.5F;
++                        u = textureAtlasSprite.getU(0.5F + (-f14 - f13));
++                        v = textureAtlasSprite.getV(0.5F + (-f14 + f13));
++                        f8 = textureAtlasSprite.getU(0.5F + (-f14 + f13));
++                        v1 = textureAtlasSprite.getV(0.5F + (f14 + f13));
++                        u1 = textureAtlasSprite.getU(0.5F + (f14 + f13));
++                        f9 = textureAtlasSprite.getV(0.5F + (f14 - f13));
++                        f10 = textureAtlasSprite.getU(0.5F + (f14 - f13));
++                        f11 = textureAtlasSprite.getV(0.5F + (-f14 - f13));
++                    }
++
++                    float f16 = (u + f8 + u1 + f10) / 4.0F;
++                    float f12 = (v + v1 + f9 + f11) / 4.0F;
++                    float f13 = textureAtlasSprites[0].uvShrinkRatio();
++                    u = Mth.lerp(f13, u, f16);
++                    f8 = Mth.lerp(f13, f8, f16);
++                    u1 = Mth.lerp(f13, u1, f16);
++                    f10 = Mth.lerp(f13, f10, f16);
++                    v = Mth.lerp(f13, v, f12);
++                    v1 = Mth.lerp(f13, v1, f12);
++                    f9 = Mth.lerp(f13, f9, f12);
++                    f11 = Mth.lerp(f13, f11, f12);
++                    int lightColor = this.getLightColor(level, pos);
++                    float f15 = shade1 * f;
++                    float f17 = shade1 * f1;
++                    float f18 = shade1 * f2;
+                     this.vertex(buffer, height1 + 0.0F, height2 + f4, height3 + 0.0F, f15, f17, f18, u, v, lightColor);
+-                    this.vertex(buffer, height1 + 1.0F, height2 + f3, height3 + 0.0F, f15, f17, f18, f10, f11, lightColor);
+-                    this.vertex(buffer, height1 + 1.0F, height2 + f5, height3 + 1.0F, f15, f17, f18, u1, f9, lightColor);
+                     this.vertex(buffer, height1 + 0.0F, height2 + f6, height3 + 1.0F, f15, f17, f18, f8, v1, lightColor);
+-                }
+-            }
+-
+-            if (flag1) {
+-                float ux = textureAtlasSprites[0].getU0();
+-                float f8x = textureAtlasSprites[0].getU1();
+-                float u1x = textureAtlasSprites[0].getV0();
+-                float f10x = textureAtlasSprites[0].getV1();
+-                int lightColor1 = this.getLightColor(level, pos.below());
+-                float v1x = shade * f;
+-                float f9x = shade * f1;
+-                float f11x = shade * f2;
+-                this.vertex(buffer, height1, height2 + f7, height3 + 1.0F, v1x, f9x, f11x, ux, f10x, lightColor1);
+-                this.vertex(buffer, height1, height2 + f7, height3, v1x, f9x, f11x, ux, u1x, lightColor1);
+-                this.vertex(buffer, height1 + 1.0F, height2 + f7, height3, v1x, f9x, f11x, f8x, u1x, lightColor1);
+-                this.vertex(buffer, height1 + 1.0F, height2 + f7, height3 + 1.0F, v1x, f9x, f11x, f8x, f10x, lightColor1);
+-            }
+-
+-            int lightColor2 = this.getLightColor(level, pos);
+-
+-            for (Direction direction : Direction.Plane.HORIZONTAL) {
+-                float f10x;
+-                float vx;
+-                float v1x;
+-                float f9x;
+-                float f11x;
+-                float f19;
+-                boolean flag2;
+-                switch (direction) {
+-                    case NORTH:
+-                        f10x = f4;
+-                        vx = f3;
+-                        v1x = height1;
+-                        f11x = height1 + 1.0F;
+-                        f9x = height3 + 0.001F;
+-                        f19 = height3 + 0.001F;
+-                        flag2 = shouldRenderFace;
+-                        break;
+-                    case SOUTH:
+-                        f10x = f5;
+-                        vx = f6;
+-                        v1x = height1 + 1.0F;
+-                        f11x = height1;
+-                        f9x = height3 + 1.0F - 0.001F;
+-                        f19 = height3 + 1.0F - 0.001F;
+-                        flag2 = shouldRenderFace1;
+-                        break;
+-                    case WEST:
+-                        f10x = f6;
+-                        vx = f4;
+-                        v1x = height1 + 0.001F;
+-                        f11x = height1 + 0.001F;
+-                        f9x = height3 + 1.0F;
+-                        f19 = height3;
+-                        flag2 = shouldRenderFace2;
+-                        break;
+-                    default:
+-                        f10x = f3;
+-                        vx = f5;
+-                        v1x = height1 + 1.0F - 0.001F;
+-                        f11x = height1 + 1.0F - 0.001F;
+-                        f9x = height3;
+-                        f19 = height3 + 1.0F;
+-                        flag2 = shouldRenderFace3;
+-                }
+-
+-                if (flag2 && !isFaceOccludedByNeighbor(direction, Math.max(f10x, vx), level.getBlockState(pos.relative(direction)))) {
+-                    BlockPos blockPos = pos.relative(direction);
+-                    TextureAtlasSprite textureAtlasSprite1 = textureAtlasSprites[1];
+-                    if (!isLava) {
+-                        Block block = level.getBlockState(blockPos).getBlock();
+-                        if (block instanceof HalfTransparentBlock || block instanceof LeavesBlock) {
+-                            textureAtlasSprite1 = this.waterOverlay;
++                    this.vertex(buffer, height1 + 1.0F, height2 + f5, height3 + 1.0F, f15, f17, f18, u1, f9, lightColor);
++                    this.vertex(buffer, height1 + 1.0F, height2 + f3, height3 + 0.0F, f15, f17, f18, f10, f11, lightColor);
++                    if (fluidState.shouldRenderBackwardUpFace(level, pos.above())) {
++                        this.vertex(buffer, height1 + 0.0F, height2 + f4, height3 + 0.0F, f15, f17, f18, u, v, lightColor);
++                        this.vertex(buffer, height1 + 1.0F, height2 + f3, height3 + 0.0F, f15, f17, f18, f10, f11, lightColor);
++                        this.vertex(buffer, height1 + 1.0F, height2 + f5, height3 + 1.0F, f15, f17, f18, u1, f9, lightColor);
++                        this.vertex(buffer, height1 + 0.0F, height2 + f6, height3 + 1.0F, f15, f17, f18, f8, v1, lightColor);
++                    }
++                }
++
++                if (flag1) {
++                    float ux = textureAtlasSprites[0].getU0();
++                    float f8x = textureAtlasSprites[0].getU1();
++                    float u1x = textureAtlasSprites[0].getV0();
++                    float f10x = textureAtlasSprites[0].getV1();
++                    int lightColor1 = this.getLightColor(level, pos.below());
++                    float v1x = shade * f;
++                    float f9x = shade * f1;
++                    float f11x = shade * f2;
++                    this.vertex(buffer, height1, height2 + f7, height3 + 1.0F, v1x, f9x, f11x, ux, f10x, lightColor1);
++                    this.vertex(buffer, height1, height2 + f7, height3, v1x, f9x, f11x, ux, u1x, lightColor1);
++                    this.vertex(buffer, height1 + 1.0F, height2 + f7, height3, v1x, f9x, f11x, f8x, u1x, lightColor1);
++                    this.vertex(buffer, height1 + 1.0F, height2 + f7, height3 + 1.0F, v1x, f9x, f11x, f8x, f10x, lightColor1);
++                }
++
++                int lightColor2 = this.getLightColor(level, pos);
++
++                for (Direction direction : Direction.Plane.HORIZONTAL) {
++                    float f10x;
++                    float vx;
++                    float v1x;
++                    float f9x;
++                    float f11x;
++                    float f19;
++                    boolean flag2;
++                    switch (direction) {
++                        case NORTH:
++                            f10x = f4;
++                            vx = f3;
++                            v1x = height1;
++                            f11x = height1 + 1.0F;
++                            f9x = height3 + 0.001F;
++                            f19 = height3 + 0.001F;
++                            flag2 = shouldRenderFace;
++                            break;
++                        case SOUTH:
++                            f10x = f5;
++                            vx = f6;
++                            v1x = height1 + 1.0F;
++                            f11x = height1;
++                            f9x = height3 + 1.0F - 0.001F;
++                            f19 = height3 + 1.0F - 0.001F;
++                            flag2 = shouldRenderFace1;
++                            break;
++                        case WEST:
++                            f10x = f6;
++                            vx = f4;
++                            v1x = height1 + 0.001F;
++                            f11x = height1 + 0.001F;
++                            f9x = height3 + 1.0F;
++                            f19 = height3;
++                            flag2 = shouldRenderFace2;
++                            break;
++                        default:
++                            f10x = f3;
++                            vx = f5;
++                            v1x = height1 + 1.0F - 0.001F;
++                            f11x = height1 + 1.0F - 0.001F;
++                            f9x = height3;
++                            f19 = height3 + 1.0F;
++                            flag2 = shouldRenderFace3;
++                    }
++
++                    if (flag2 && !isFaceOccludedByNeighbor(direction, Math.max(f10x, vx), level.getBlockState(pos.relative(direction)))) {
++                        BlockPos blockPos = pos.relative(direction);
++                        TextureAtlasSprite textureAtlasSprite1 = textureAtlasSprites[1];
++                        if (!isLava) {
++                            Block block = level.getBlockState(blockPos).getBlock();
++                            this.fabric_neighborBlock.set(block);
++                            textureAtlasSprite1 = localvar$zfc000$fabric_rendering_fluids_v1$modSideSpriteForOverlay(textureAtlasSprite1);
++                            if (block instanceof HalfTransparentBlock || block instanceof LeavesBlock) {
++                                textureAtlasSprite1 = (info.handler != null && info.hasOverlay ? info.overlaySprite : this.waterOverlay);
++                            }
+                         }
+-                    }
+ 
+-                    float f14 = textureAtlasSprite1.getU(0.0F);
+-                    float f15 = textureAtlasSprite1.getU(0.5F);
+-                    float f17 = textureAtlasSprite1.getV((1.0F - f10x) * 0.5F);
+-                    float f18 = textureAtlasSprite1.getV((1.0F - vx) * 0.5F);
+-                    float v2 = textureAtlasSprite1.getV(0.5F);
+-                    float f20 = direction.getAxis() == Direction.Axis.Z ? shade2 : shade3;
+-                    float f21 = shade1 * f20 * f;
+-                    float f22 = shade1 * f20 * f1;
+-                    float f23 = shade1 * f20 * f2;
+-                    this.vertex(buffer, v1x, height2 + f10x, f9x, f21, f22, f23, f14, f17, lightColor2);
+-                    this.vertex(buffer, f11x, height2 + vx, f19, f21, f22, f23, f15, f18, lightColor2);
+-                    this.vertex(buffer, f11x, height2 + f7, f19, f21, f22, f23, f15, v2, lightColor2);
+-                    this.vertex(buffer, v1x, height2 + f7, f9x, f21, f22, f23, f14, v2, lightColor2);
+-                    if (textureAtlasSprite1 != this.waterOverlay) {
+-                        this.vertex(buffer, v1x, height2 + f7, f9x, f21, f22, f23, f14, v2, lightColor2);
+-                        this.vertex(buffer, f11x, height2 + f7, f19, f21, f22, f23, f15, v2, lightColor2);
+-                        this.vertex(buffer, f11x, height2 + vx, f19, f21, f22, f23, f15, f18, lightColor2);
++                        float f14 = textureAtlasSprite1.getU(0.0F);
++                        float f15 = textureAtlasSprite1.getU(0.5F);
++                        float f17 = textureAtlasSprite1.getV((1.0F - f10x) * 0.5F);
++                        float f18 = textureAtlasSprite1.getV((1.0F - vx) * 0.5F);
++                        float v2 = textureAtlasSprite1.getV(0.5F);
++                        float f20 = direction.getAxis() == Direction.Axis.Z ? shade2 : shade3;
++                        float f21 = shade1 * f20 * f;
++                        float f22 = shade1 * f20 * f1;
++                        float f23 = shade1 * f20 * f2;
+                         this.vertex(buffer, v1x, height2 + f10x, f9x, f21, f22, f23, f14, f17, lightColor2);
++                        this.vertex(buffer, f11x, height2 + vx, f19, f21, f22, f23, f15, f18, lightColor2);
++                        this.vertex(buffer, f11x, height2 + f7, f19, f21, f22, f23, f15, v2, lightColor2);
++                        this.vertex(buffer, v1x, height2 + f7, f9x, f21, f22, f23, f14, v2, lightColor2);
++                        if (textureAtlasSprite1 != (info.handler != null && info.hasOverlay ? info.overlaySprite : this.waterOverlay)) {
++                            this.vertex(buffer, v1x, height2 + f7, f9x, f21, f22, f23, f14, v2, lightColor2);
++                            this.vertex(buffer, f11x, height2 + f7, f19, f21, f22, f23, f15, v2, lightColor2);
++                            this.vertex(buffer, f11x, height2 + vx, f19, f21, f22, f23, f15, f18, lightColor2);
++                            this.vertex(buffer, v1x, height2 + f10x, f9x, f21, f22, f23, f14, f17, lightColor2);
++                        }
+                     }
+                 }
+             }
+@@ -344,5 +_,15 @@
+         int i2 = lightColor >> 16 & 0xFF;
+         int i3 = lightColor1 >> 16 & 0xFF;
+         return (i > i1 ? i : i1) | (i2 > i3 ? i2 : i3) << 16;
++    }
++
++    public TextureAtlasSprite localvar$zfc000$fabric_rendering_fluids_v1$modSideSpriteForOverlay(TextureAtlasSprite textureAtlasSprite) {
++        Block block = this.fabric_neighborBlock.get();
++        if (!FluidRenderHandlerRegistry.INSTANCE.isBlockTransparent(block)) {
++            return textureAtlasSprite;
++        } else {
++            FluidRenderHandlerInfo info = FluidRenderingImpl.getCurrentInfo();
++            return info.handler != null && info.hasOverlay ? info.overlaySprite : this.waterOverlay;
++        }
+     }
+ }

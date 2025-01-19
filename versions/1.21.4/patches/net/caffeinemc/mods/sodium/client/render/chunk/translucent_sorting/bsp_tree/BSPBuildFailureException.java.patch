@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/net/caffeinemc/mods/sodium/client/render/chunk/translucent_sorting/bsp_tree/BSPBuildFailureException.java
+@@ -1,0 +_,7 @@
++package net.caffeinemc.mods.sodium.client.render.chunk.translucent_sorting.bsp_tree;
++
++public class BSPBuildFailureException extends RuntimeException {
++    BSPBuildFailureException(String message) {
++        super(message);
++    }
++}
