@@ -1,0 +1,44 @@
+--- a/net/minecraft/util/random/WeightedRandomList.java
++++ b/net/minecraft/util/random/WeightedRandomList.java
+@@ -6,9 +_,11 @@
+ import java.util.Objects;
+ import java.util.Optional;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.util.WeightedRandomListExtension;
+ import net.minecraft.util.RandomSource;
+ 
+-public class WeightedRandomList<E extends WeightedEntry> {
++public class WeightedRandomList<E extends WeightedEntry> implements WeightedRandomListExtension<E> {
+     private final int totalWeight;
+     private final ImmutableList<E> items;
+ 
+@@ -66,5 +_,28 @@
+     @Override
+     public int hashCode() {
+         return Objects.hash(this.totalWeight, this.items);
++    }
++
++    @Override
++    public E sodium$getQuick(RandomSource random) {
++        if (this.totalWeight == 0) return null;
++
++        int randomValue = Math.abs((int) random.nextLong()) % this.totalWeight;
++
++        int i = 0;
++        int len = items.size();
++
++        E weighted;
++
++        do {
++            if (i >= len) {
++                return null;
++            }
++
++            weighted = items.get(i++);
++            randomValue -= weighted.getWeight().asInt();
++        } while (randomValue >= 0);
++
++        return weighted;
+     }
+ }

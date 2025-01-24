@@ -1,5 +1,26 @@
 --- a/net/minecraft/client/renderer/entity/EntityRenderer.java
 +++ b/net/minecraft/client/renderer/entity/EntityRenderer.java
+@@ -1,8 +_,11 @@
+ package net.minecraft.client.renderer.entity;
+ 
++import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+ import com.mojang.blaze3d.vertex.PoseStack;
+ import com.mojang.blaze3d.vertex.VertexConsumer;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
+ import net.minecraft.client.Minecraft;
+ import net.minecraft.client.gui.Font;
+ import net.minecraft.client.renderer.LightTexture;
+@@ -68,7 +_,7 @@
+                 );
+             }
+ 
+-            if (camera.isVisible(aabb)) {
++            if (this.wrapOperation$zcp000$sodium$preShouldRender(camera, aabb, livingEntity)) {
+                 return true;
+             } else {
+                 if (livingEntity instanceof Leashable leashable) {
 @@ -86,6 +_,10 @@
      protected AABB getBoundingBoxForCulling(T minecraft) {
          return minecraft.getBoundingBox();
@@ -11,3 +32,18 @@
  
      protected boolean affectedByCulling(T display) {
          return true;
+@@ -321,5 +_,14 @@
+         }
+ 
+         reusedState.displayFireAnimation = entity.displayFireAnimation();
++    }
++    
++    private boolean wrapOperation$zcp000$sodium$preShouldRender(Frustum camera, AABB aabb, Entity entity) {
++        SodiumWorldRenderer renderer = SodiumWorldRenderer.instanceNullable();
++        if (renderer == null) {
++            return camera.isVisible(aabb);
++        } else {
++            return renderer.isEntityVisible(this, entity) && camera.isVisible(aabb);
++        }
+     }
+ }

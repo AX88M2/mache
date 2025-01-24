@@ -1,0 +1,43 @@
+--- a/net/minecraft/client/renderer/ItemBlockRenderTypes.java
++++ b/net/minecraft/client/renderer/ItemBlockRenderTypes.java
+@@ -2,7 +_,10 @@
+ 
+ import com.google.common.collect.Maps;
+ import java.util.Map;
++
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
+ import net.minecraft.Util;
++import net.minecraft.client.GraphicsStatus;
+ import net.minecraft.world.item.BlockItem;
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.level.block.Block;
+@@ -347,11 +_,12 @@
+         renderTypeByFluid.put(Fluids.WATER, renderType);
+     });
+     private static boolean renderCutout;
++    private static boolean leavesFancy;
+ 
+     public static RenderType getChunkRenderType(BlockState state) {
+         Block block = state.getBlock();
+         if (block instanceof LeavesBlock) {
+-            return renderCutout ? RenderType.cutoutMipped() : RenderType.solid();
++            return leavesFancy ? RenderType.cutoutMipped() : RenderType.solid();
+         } else {
+             RenderType renderType = TYPE_BY_BLOCK.get(block);
+             return renderType != null ? renderType : RenderType.solid();
+@@ -361,7 +_,7 @@
+     public static RenderType getMovingBlockRenderType(BlockState state) {
+         Block block = state.getBlock();
+         if (block instanceof LeavesBlock) {
+-            return renderCutout ? RenderType.cutoutMipped() : RenderType.solid();
++            return leavesFancy ? RenderType.cutoutMipped() : RenderType.solid();
+         } else {
+             RenderType renderType = TYPE_BY_BLOCK.get(block);
+             if (renderType != null) {
+@@ -393,5 +_,6 @@
+ 
+     public static void setFancy(boolean fancy) {
+         renderCutout = fancy;
++        leavesFancy = SodiumClientMod.options().quality.leavesQuality.isFancy(fancy ? GraphicsStatus.FANCY : GraphicsStatus.FAST);
+     }
+ }

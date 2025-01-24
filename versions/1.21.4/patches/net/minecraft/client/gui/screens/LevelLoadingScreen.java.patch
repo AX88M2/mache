@@ -1,0 +1,163 @@
+--- a/net/minecraft/client/gui/screens/LevelLoadingScreen.java
++++ b/net/minecraft/client/gui/screens/LevelLoadingScreen.java
+@@ -2,16 +_,24 @@
+ 
+ import it.unimi.dsi.fastutil.objects.Object2IntMap;
+ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
++import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
++import net.caffeinemc.mods.sodium.api.util.ColorABGR;
++import net.caffeinemc.mods.sodium.api.util.ColorARGB;
++import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
++import net.caffeinemc.mods.sodium.api.vertex.format.common.ColorVertex;
+ import net.minecraft.Util;
+ import net.minecraft.client.GameNarrator;
+ import net.minecraft.client.gui.GuiGraphics;
+ import net.minecraft.client.gui.narration.NarratedElementType;
+ import net.minecraft.client.gui.narration.NarrationElementOutput;
++import net.minecraft.client.renderer.RenderType;
+ import net.minecraft.network.chat.Component;
+ import net.minecraft.server.level.progress.StoringChunkProgressListener;
+ import net.minecraft.util.ARGB;
+ import net.minecraft.util.Mth;
+ import net.minecraft.world.level.chunk.status.ChunkStatus;
++import org.joml.Matrix4f;
++import org.lwjgl.system.MemoryStack;
+ 
+ public class LevelLoadingScreen extends Screen {
+     private static final long NARRATION_DELAY_MS = 2000L;
+@@ -33,6 +_,9 @@
+         map.put(ChunkStatus.SPAWN, 15884384);
+         map.put(ChunkStatus.FULL, 16777215);
+     });
++    private static Reference2IntOpenHashMap<ChunkStatus> STATUS_TO_COLOR_FAST;
++    private static final int NULL_STATUS_COLOR = ColorABGR.pack(0, 0, 0, 0xFF);
++    private static final int DEFAULT_STATUS_COLOR = ColorARGB.pack(0, 0x11, 0xFF, 0xFF);
+ 
+     public LevelLoadingScreen(StoringChunkProgressListener progressListener) {
+         super(GameNarrator.NO_TITLE);
+@@ -84,30 +_,102 @@
+         guiGraphics.drawCenteredString(this.font, this.getFormattedProgress(), i, i1 - i2, 16777215);
+     }
+ 
+-    public static void renderChunks(GuiGraphics guiGraphics, StoringChunkProgressListener progressListener, int x, int y, int size, int spacing) {
+-        int i = size + spacing;
+-        int fullDiameter = progressListener.getFullDiameter();
+-        int i1 = fullDiameter * i - spacing;
+-        int diameter = progressListener.getDiameter();
+-        int i2 = diameter * i - spacing;
+-        int i3 = x - i2 / 2;
+-        int i4 = y - i2 / 2;
+-        int i5 = i1 / 2 + 1;
+-        int i6 = -16772609;
+-        if (spacing != 0) {
+-            guiGraphics.fill(x - i5, y - i5, x - i5 + 1, y + i5, -16772609);
+-            guiGraphics.fill(x + i5 - 1, y - i5, x + i5, y + i5, -16772609);
+-            guiGraphics.fill(x - i5, y - i5, x + i5, y - i5 + 1, -16772609);
+-            guiGraphics.fill(x - i5, y + i5 - 1, x + i5, y + i5, -16772609);
+-        }
+-
+-        for (int i7 = 0; i7 < diameter; i7++) {
+-            for (int i8 = 0; i8 < diameter; i8++) {
+-                ChunkStatus status = progressListener.getStatus(i7, i8);
+-                int i9 = i3 + i7 * i;
+-                int i10 = i4 + i8 * i;
+-                guiGraphics.fill(i9, i10, i9 + size, i10 + size, ARGB.opaque(COLORS.getInt(status)));
++    private static void addRect(VertexBufferWriter writer, Matrix4f matrix, int x1, int y1, int x2, int y2, int color) {
++        try (MemoryStack stack = MemoryStack.stackPush()) {
++            long buffer = stack.nmalloc(4 * ColorVertex.STRIDE);
++            long ptr = buffer;
++
++            ColorVertex.put(ptr, matrix, x1, y2, 0, color);
++            ptr += ColorVertex.STRIDE;
++
++            ColorVertex.put(ptr, matrix, x2, y2, 0, color);
++            ptr += ColorVertex.STRIDE;
++
++            ColorVertex.put(ptr, matrix, x2, y1, 0, color);
++            ptr += ColorVertex.STRIDE;
++
++            ColorVertex.put(ptr, matrix, x1, y1, 0, color);
++            ptr += ColorVertex.STRIDE;
++
++            writer.push(stack, buffer, 4, ColorVertex.FORMAT);
++        }
++    }
++    
++    private static void sodium$drawChunkMap(StoringChunkProgressListener listener,
++                                            int mapX,
++                                            int mapY,
++                                            int mapScale,
++                                            int mapPadding,
++                                            VertexBufferWriter writer,
++                                            Matrix4f pose)
++    {
++        if (STATUS_TO_COLOR_FAST == null) {
++            STATUS_TO_COLOR_FAST = new Reference2IntOpenHashMap<>(COLORS.size());
++            STATUS_TO_COLOR_FAST.put(null, NULL_STATUS_COLOR);
++            COLORS.object2IntEntrySet()
++                    .forEach(entry -> STATUS_TO_COLOR_FAST.put(entry.getKey(), ColorARGB.toABGR(entry.getIntValue(), 0xFF)));
++        }
++
++        int centerSize = listener.getFullDiameter();
++        int size = listener.getDiameter();
++
++        int tileSize = mapScale + mapPadding;
++
++        if (mapPadding != 0) {
++            int mapRenderCenterSize = centerSize * tileSize - mapPadding;
++            int radius = mapRenderCenterSize / 2 + 1;
++
++            addRect(writer, pose, mapX - radius, mapY - radius, mapX - radius + 1, mapY + radius, DEFAULT_STATUS_COLOR);
++            addRect(writer, pose, mapX + radius - 1, mapY - radius, mapX + radius, mapY + radius, DEFAULT_STATUS_COLOR);
++            addRect(writer, pose, mapX - radius, mapY - radius, mapX + radius, mapY - radius + 1, DEFAULT_STATUS_COLOR);
++            addRect(writer, pose, mapX - radius, mapY + radius - 1, mapX + radius, mapY + radius, DEFAULT_STATUS_COLOR);
++        }
++
++        int mapRenderSize = size * tileSize - mapPadding;
++        int mapStartX = mapX - mapRenderSize / 2;
++        int mapStartY = mapY - mapRenderSize / 2;
++
++        ChunkStatus prevStatus = null;
++        int prevColor = NULL_STATUS_COLOR;
++
++        for (int x = 0; x < size; ++x) {
++            int tileX = mapStartX + x * tileSize;
++
++            for (int z = 0; z < size; ++z) {
++                int tileY = mapStartY + z * tileSize;
++
++                ChunkStatus status = listener.getStatus(x, z);
++                int color;
++
++                if (prevStatus == status) {
++                    color = prevColor;
++                } else {
++                    color = STATUS_TO_COLOR_FAST.getInt(status);
++
++                    prevStatus = status;
++                    prevColor = color;
++                }
++
++                addRect(writer, pose, tileX, tileY, tileX + mapScale, tileY + mapScale, color);
+             }
+         }
++    }
++    
++    /**
++     * This implementation differs from vanilla's in the following key ways.
++     * - All tiles are batched together in one draw call, reducing CPU overhead by an order of magnitudes.
++     * - Reference hashing is used for faster ChunkStatus -> Color lookup.
++     * - Colors are stored in ABGR format so conversion is not necessary every tile draw.
++     */
++    public static void renderChunks(GuiGraphics graphics, StoringChunkProgressListener listener, int mapX, int mapY, int mapScale, int mapPadding) {
++        Matrix4f pose = graphics.pose()
++                .last()
++                .pose();
++
++        graphics.drawSpecial((bufferSource -> {
++            var writer = VertexBufferWriter.of(bufferSource.getBuffer(RenderType.gui()));
++
++            sodium$drawChunkMap(listener, mapX, mapY, mapScale, mapPadding, writer, pose);
++        }));
+     }
+ }

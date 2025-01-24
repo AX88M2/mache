@@ -1,0 +1,22 @@
+--- a/net/minecraft/client/renderer/WeatherEffectRenderer.java
++++ b/net/minecraft/client/renderer/WeatherEffectRenderer.java
+@@ -3,7 +_,10 @@
+ import com.mojang.blaze3d.vertex.VertexConsumer;
+ import java.util.ArrayList;
+ import java.util.List;
++
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
+ import net.minecraft.client.Camera;
++import net.minecraft.client.GraphicsStatus;
+ import net.minecraft.client.Minecraft;
+ import net.minecraft.client.multiplayer.ClientLevel;
+ import net.minecraft.core.BlockPos;
+@@ -55,7 +_,7 @@
+     public void render(Level level, MultiBufferSource bufferSource, int ticks, float partialTick, Vec3 cameraPosition) {
+         float rainLevel = level.getRainLevel(partialTick);
+         if (!(rainLevel <= 0.0F)) {
+-            int i = Minecraft.useFancyGraphics() ? 10 : 5;
++            int i = SodiumClientMod.options().quality.weatherQuality.isFancy(Minecraft.getInstance().options.graphicsMode().get()) ? 10 : 5;
+             List<WeatherEffectRenderer.ColumnInstance> list = new ArrayList<>();
+             List<WeatherEffectRenderer.ColumnInstance> list1 = new ArrayList<>();
+             this.collectColumnInstances(level, ticks, partialTick, cameraPosition, i, list, list1);

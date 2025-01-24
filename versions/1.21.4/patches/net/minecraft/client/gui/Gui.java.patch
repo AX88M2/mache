@@ -1,0 +1,20 @@
+--- a/net/minecraft/client/gui/Gui.java
++++ b/net/minecraft/client/gui/Gui.java
+@@ -8,6 +_,8 @@
+ import java.util.Comparator;
+ import java.util.List;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
+ import net.minecraft.ChatFormatting;
+ import net.minecraft.Util;
+ import net.minecraft.client.AttackIndicatorStatus;
+@@ -218,7 +_,7 @@
+     }
+ 
+     private void renderCameraOverlays(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+-        if (Minecraft.useFancyGraphics()) {
++        if (SodiumClientMod.options().quality.enableVignette) {
+             this.renderVignette(guiGraphics, this.minecraft.getCameraEntity());
+         }
+ 

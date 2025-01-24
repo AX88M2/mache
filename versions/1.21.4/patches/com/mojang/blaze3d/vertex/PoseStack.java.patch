@@ -1,0 +1,11 @@
+--- a/com/mojang/blaze3d/vertex/PoseStack.java
++++ b/com/mojang/blaze3d/vertex/PoseStack.java
+@@ -93,7 +_,7 @@
+     public static final class Pose {
+         final Matrix4f pose;
+         final Matrix3f normal;
+-        boolean trustedNormals = true;
++        public boolean trustedNormals = true;
+ 
+         Pose(Matrix4f pose, Matrix3f normal) {
+             this.pose = pose;

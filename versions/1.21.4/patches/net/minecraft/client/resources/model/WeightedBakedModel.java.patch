@@ -1,13 +1,14 @@
 --- a/net/minecraft/client/resources/model/WeightedBakedModel.java
 +++ b/net/minecraft/client/resources/model/WeightedBakedModel.java
-@@ -2,23 +_,68 @@
+@@ -2,23 +_,77 @@
  
  import java.util.Collections;
  import java.util.List;
+-import javax.annotation.Nullable;
 +import java.util.function.Predicate;
 +import java.util.function.Supplier;
- import javax.annotation.Nullable;
 +
++import net.caffeinemc.mods.sodium.client.util.WeightedRandomListExtension;
 +import net.fabricmc.fabric.api.renderer.v1.mesh.QuadEmitter;
 +import net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel;
  import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -18,6 +19,7 @@
 +import net.minecraft.util.random.WeightedEntry;
 +import net.minecraft.world.level.BlockAndTintGetter;
  import net.minecraft.world.level.block.state.BlockState;
++import org.jetbrains.annotations.Nullable;
  
 -public class WeightedBakedModel extends DelegateBakedModel {
 +public class WeightedBakedModel extends DelegateBakedModel implements FabricBakedModel {
@@ -27,18 +29,31 @@
      public WeightedBakedModel(SimpleWeightedRandomList<BakedModel> list) {
          super(list.unwrap().getFirst().data());
          this.list = list;
+-    }
+-
+-    @Override
+-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction direction, RandomSource random) {
+-        return this.list.getRandomValue(random).map(bakedModel -> bakedModel.getQuads(state, direction, random)).orElse(Collections.emptyList());
 +        for (WeightedEntry.Wrapper<BakedModel> model : list.unwrap()) {
 +            if (!model.data().isVanillaAdapter()) {
 +                isVanilla = false;
 +                break;
 +            }
 +        }
-     }
- 
-     @Override
-     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction direction, RandomSource random) {
-         return this.list.getRandomValue(random).map(bakedModel -> bakedModel.getQuads(state, direction, random)).orElse(Collections.emptyList());
 +    }
++
++    @Override
++    public List<BakedQuad> getQuads(@org.jetbrains.annotations.Nullable BlockState state, @Nullable Direction face, RandomSource random) {
++        WeightedEntry.Wrapper<BakedModel> model = ((WeightedRandomListExtension<WeightedEntry.Wrapper<BakedModel>>) list).sodium$getQuick(random);
++
++        if (model != null) {
++            return model.data()
++                    .getQuads(state, face, random);
++        }
++
++        return Collections.emptyList();
++    }
++    
 +    @Override
 +    public boolean isVanillaAdapter() {
 +        return isVanilla;

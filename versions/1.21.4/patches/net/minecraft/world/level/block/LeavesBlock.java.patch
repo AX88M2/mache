@@ -1,0 +1,27 @@
+--- a/net/minecraft/world/level/block/LeavesBlock.java
++++ b/net/minecraft/world/level/block/LeavesBlock.java
+@@ -2,6 +_,9 @@
+ 
+ import com.mojang.serialization.MapCodec;
+ import java.util.OptionalInt;
++
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
++import net.minecraft.client.Minecraft;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
+ import net.minecraft.core.particles.ParticleTypes;
+@@ -162,5 +_,14 @@
+             .setValue(PERSISTENT, Boolean.valueOf(true))
+             .setValue(WATERLOGGED, Boolean.valueOf(fluidState.getType() == Fluids.WATER));
+         return updateDistance(blockState, context.getLevel(), context.getClickedPos());
++    }
++
++    @Override
++    public boolean skipRendering(BlockState state, BlockState stateFrom, Direction direction) {
++        if (SodiumClientMod.options().quality.leavesQuality.isFancy(Minecraft.getInstance().options.graphicsMode().get())) {
++            return super.skipRendering(state, stateFrom, direction);
++        } else {
++            return stateFrom.getBlock() instanceof LeavesBlock || super.skipRendering(state, stateFrom, direction);
++        }
+     }
+ }

@@ -1,12 +1,15 @@
 --- a/net/minecraft/client/resources/model/MultiPartBakedModel.java
 +++ b/net/minecraft/client/resources/model/MultiPartBakedModel.java
-@@ -7,16 +_,22 @@
+@@ -6,17 +_,27 @@
+ import java.util.Collections;
  import java.util.List;
  import java.util.Map;
++import java.util.concurrent.locks.StampedLock;
  import java.util.function.Predicate;
 +import java.util.function.Supplier;
  import javax.annotation.Nullable;
 +
++import it.unimi.dsi.fastutil.objects.Reference2ReferenceOpenHashMap;
 +import net.fabricmc.fabric.api.renderer.v1.mesh.QuadEmitter;
  import net.minecraft.client.renderer.block.model.BakedQuad;
 +import net.minecraft.core.BlockPos;
@@ -16,16 +19,18 @@
  import net.minecraft.world.level.block.state.BlockState;
  
 -public class MultiPartBakedModel extends DelegateBakedModel {
-+public class MultiPartBakedModel extends DelegateBakedModel implements BakedModel{
++public class MultiPartBakedModel extends DelegateBakedModel implements BakedModel {
      private final List<MultiPartBakedModel.Selector> selectors;
      private final Map<BlockState, BitSet> selectorCache = new Reference2ObjectOpenHashMap<>();
 -
++    private final Map<BlockState, BakedModel[]> stateCacheFast = new Reference2ReferenceOpenHashMap<>();
++    private final StampedLock lock = new StampedLock();
 +    private boolean isVanilla = true;
 +    
      private static BakedModel getFirstModel(List<MultiPartBakedModel.Selector> selectors) {
          if (selectors.isEmpty()) {
              throw new IllegalArgumentException("Model must have at least one selector");
-@@ -28,6 +_,12 @@
+@@ -28,40 +_,101 @@
      public MultiPartBakedModel(List<MultiPartBakedModel.Selector> parent) {
          super(getFirstModel(parent));
          this.selectors = parent;
@@ -38,7 +43,71 @@
      }
  
      @Override
-@@ -63,5 +_,48 @@
+-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction direction, RandomSource random) {
++    public List<BakedQuad> getQuads(BlockState state, Direction face, RandomSource random) {
+         if (state == null) {
+             return Collections.emptyList();
+-        } else {
+-            BitSet bitSet = this.selectorCache.get(state);
+-            if (bitSet == null) {
+-                bitSet = new BitSet();
+-
+-                for (int i = 0; i < this.selectors.size(); i++) {
+-                    if (this.selectors.get(i).condition.test(state)) {
+-                        bitSet.set(i);
++        }
++
++        BakedModel[] models;
++
++        long readStamp = this.lock.readLock();
++        try {
++            models = this.stateCacheFast.get(state);
++        } finally {
++            this.lock.unlockRead(readStamp);
++        }
++
++        if (models == null) {
++            long writeStamp = this.lock.writeLock();
++            try {
++                List<BakedModel> modelList = new ArrayList<>(this.selectors.size());
++
++                for (MultiPartBakedModel.Selector selector : this.selectors) {
++                    if (selector.condition().test(state)) {
++                        modelList.add(selector.model());
+                     }
+                 }
+ 
+-                this.selectorCache.put(state, bitSet);
+-            }
+-
+-            List<BakedQuad> list = new ArrayList<>();
+-            long randomLong = random.nextLong();
+-
+-            for (int i1 = 0; i1 < bitSet.length(); i1++) {
+-                if (bitSet.get(i1)) {
+-                    random.setSeed(randomLong);
+-                    list.addAll(this.selectors.get(i1).model.getQuads(state, direction, random));
+-                }
+-            }
+-
+-            return list;
+-        }
++                models = modelList.toArray(BakedModel[]::new);
++                this.stateCacheFast.put(state, models);
++            } finally {
++                this.lock.unlockWrite(writeStamp);
++            }
++        }
++
++        List<BakedQuad> quads = new ArrayList<>();
++        long seed = random.nextLong();
++
++        for (BakedModel model : models) {
++            random.setSeed(seed);
++            quads.addAll(model.getQuads(state, face, random));
++        }
++
++        return quads;
      }
  
      public record Selector(Predicate<BlockState> condition, BakedModel model) {
