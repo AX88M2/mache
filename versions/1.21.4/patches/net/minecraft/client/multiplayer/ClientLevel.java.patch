@@ -1,0 +1,83 @@
+--- a/net/minecraft/client/multiplayer/ClientLevel.java
++++ b/net/minecraft/client/multiplayer/ClientLevel.java
+@@ -6,13 +_,15 @@
+ import com.google.common.collect.Queues;
+ import com.mojang.logging.LogUtils;
+ import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
+-import java.util.Arrays;
+-import java.util.Deque;
+-import java.util.List;
+-import java.util.Map;
+-import java.util.Set;
++
++import java.util.*;
+ import java.util.function.BooleanSupplier;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkStatus;
++import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkTracker;
++import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkTrackerHolder;
++import net.caffeinemc.mods.sodium.client.world.BiomeSeedProvider;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.ReportedException;
+@@ -95,7 +_,7 @@
+ import net.minecraft.world.ticks.LevelTickAccess;
+ import org.slf4j.Logger;
+ 
+-public class ClientLevel extends Level {
++public class ClientLevel extends Level implements BiomeSeedProvider, ChunkTrackerHolder {
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private static final double FLUID_PARTICLE_SPAWN_OFFSET = 0.05;
+     private static final int NORMAL_LIGHT_UPDATES_PER_FRAME = 10;
+@@ -126,7 +_,9 @@
+     private final int seaLevel;
+     private boolean tickDayTime;
+     private static final Set<Item> MARKER_PARTICLE_ITEMS = Set.of(Items.BARRIER, Items.LIGHT);
+-
++    private long biomeZoomSeed;
++    private final ChunkTracker chunkTracker = new ChunkTracker();
++    
+     public void handleBlockChangedAck(int sequence) {
+         this.blockStatePredictionHandler.endPredictionsUpTo(sequence, this);
+     }
+@@ -192,6 +_,7 @@
+         this.serverSimulationDistance = serverSimulationDistance;
+         this.updateSkyBrightness();
+         this.prepareWeather();
++        this.biomeZoomSeed = biomeZoomSeed;
+     }
+ 
+     public void queueLightUpdate(Runnable task) {
+@@ -297,6 +_,8 @@
+     }
+ 
+     public void unload(LevelChunk chunk) {
++        var pos = chunk.getPos();
++        this.chunkTracker.onChunkStatusRemoved(pos.x, pos.z, ChunkStatus.FLAG_ALL);
+         chunk.clearAllBlockEntities();
+         this.chunkSource.getLightEngine().setLightEnabled(chunk.getPos(), false);
+         this.entityStorage.stopTicking(chunk.getPos());
+@@ -878,6 +_,11 @@
+         return this.seaLevel;
+     }
+ 
++    @Override
++    public ChunkTracker sodium$getTracker() {
++        return Objects.requireNonNull(this.chunkTracker);;
++    }
++
+     public static class ClientLevelData implements WritableLevelData {
+         private final boolean hardcore;
+         private final boolean isFlat;
+@@ -1030,5 +_,10 @@
+         @Override
+         public void onSectionChange(Entity entity) {
+         }
++    }
++    
++    @Override
++    public long sodium$getBiomeZoomSeed() {
++        return this.biomeZoomSeed;
+     }
+ }

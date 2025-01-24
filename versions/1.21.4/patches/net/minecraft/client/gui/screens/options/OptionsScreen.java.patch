@@ -1,0 +1,20 @@
+--- a/net/minecraft/client/gui/screens/options/OptionsScreen.java
++++ b/net/minecraft/client/gui/screens/options/OptionsScreen.java
+@@ -2,6 +_,8 @@
+ 
+ import java.util.function.Supplier;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.gui.SodiumOptionsGUI;
+ import net.minecraft.client.Minecraft;
+ import net.minecraft.client.Options;
+ import net.minecraft.client.gui.components.AbstractWidget;
+@@ -69,7 +_,7 @@
+         GridLayout.RowHelper rowHelper = gridLayout.createRowHelper(2);
+         rowHelper.addChild(this.openScreenButton(SKIN_CUSTOMIZATION, () -> new SkinCustomizationScreen(this, this.options)));
+         rowHelper.addChild(this.openScreenButton(SOUNDS, () -> new SoundOptionsScreen(this, this.options)));
+-        rowHelper.addChild(this.openScreenButton(VIDEO, () -> new VideoSettingsScreen(this, this.minecraft, this.options)));
++        rowHelper.addChild(this.openScreenButton(VIDEO, () -> SodiumOptionsGUI.createScreen(this)));
+         rowHelper.addChild(this.openScreenButton(CONTROLS, () -> new ControlsScreen(this, this.options)));
+         rowHelper.addChild(this.openScreenButton(LANGUAGE, () -> new LanguageSelectScreen(this, this.options, this.minecraft.getLanguageManager())));
+         rowHelper.addChild(this.openScreenButton(CHAT, () -> new ChatOptionsScreen(this, this.options)));

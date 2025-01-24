@@ -1,0 +1,30 @@
+--- a/net/minecraft/client/multiplayer/ClientPacketListener.java
++++ b/net/minecraft/client/multiplayer/ClientPacketListener.java
+@@ -24,6 +_,9 @@
+ import java.util.UUID;
+ import java.util.concurrent.CompletableFuture;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkStatus;
++import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkTrackerHolder;
+ import net.minecraft.advancements.AdvancementHolder;
+ import net.minecraft.client.ClientRecipeBook;
+ import net.minecraft.client.DebugQueryHandler;
+@@ -829,6 +_,8 @@
+         PacketUtils.ensureRunningOnSameThread(packet, this, this.minecraft);
+         this.level.getChunkSource().drop(packet.pos());
+         this.queueLightRemoval(packet);
++        ChunkTrackerHolder.get(this.level)
++                .onChunkStatusRemoved(packet.pos().x, packet.pos().z, ChunkStatus.FLAG_ALL);
+     }
+ 
+     private void queueLightRemoval(ClientboundForgetLevelChunkPacket packet) {
+@@ -2302,6 +_,8 @@
+         Iterator<byte[]> iterator1 = data.getBlockUpdates().iterator();
+         this.readSectionList(x, z, lightEngine, LightLayer.BLOCK, blockYMask, emptyBlockYMask, iterator1, update);
+         lightEngine.setLightEnabled(new ChunkPos(x, z), true);
++        ChunkTrackerHolder.get(this.level)
++                .onChunkStatusAdded(x, z, ChunkStatus.FLAG_HAS_LIGHT_DATA);
+     }
+ 
+     @Override

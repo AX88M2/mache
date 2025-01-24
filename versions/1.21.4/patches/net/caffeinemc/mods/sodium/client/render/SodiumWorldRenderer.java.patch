@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/net/caffeinemc/mods/sodium/client/render/SodiumWorldRenderer.java
-@@ -1,0 +_,573 @@
+@@ -1,0 +_,572 @@
 +package net.caffeinemc.mods.sodium.client.render;
 +
 +import com.llamalad7.mixinextras.sugar.ref.LocalBooleanRef;
@@ -25,7 +25,6 @@
 +import net.caffeinemc.mods.sodium.client.services.PlatformBlockAccess;
 +import net.caffeinemc.mods.sodium.client.util.NativeBuffer;
 +import net.caffeinemc.mods.sodium.client.world.LevelRendererExtension;
-+import net.caffeinemc.mods.sodium.mixin.core.render.world.EntityRendererAccessor;
 +import net.minecraft.client.Camera;
 +import net.minecraft.client.Minecraft;
 +import net.minecraft.client.multiplayer.ClientLevel;

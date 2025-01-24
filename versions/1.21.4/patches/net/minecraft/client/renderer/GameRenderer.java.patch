@@ -1,0 +1,52 @@
+--- a/net/minecraft/client/renderer/GameRenderer.java
++++ b/net/minecraft/client/renderer/GameRenderer.java
+@@ -14,6 +_,8 @@
+ import java.nio.file.Path;
+ import java.util.Locale;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.gui.console.ConsoleHooks;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.ReportedException;
+@@ -65,6 +_,7 @@
+ import org.joml.Matrix4fStack;
+ import org.joml.Quaternionf;
+ import org.joml.Vector3f;
++import org.lwjgl.glfw.GLFW;
+ import org.slf4j.Logger;
+ 
+ public class GameRenderer implements AutoCloseable {
+@@ -107,6 +_,7 @@
+     private ResourceLocation postEffectId;
+     private boolean effectActive;
+     private final Camera mainCamera = new Camera();
++    private static boolean HAS_RENDERED_OVERLAY_ONCE = false;
+ 
+     public GameRenderer(Minecraft minecraft, ItemInHandRenderer itemInHandRenderer, ResourceManager resourceManager, RenderBuffers renderBuffers) {
+         this.minecraft = minecraft;
+@@ -535,6 +_,24 @@
+             }
+ 
+             guiGraphics.flush();
++
++            if (Minecraft.getInstance().getOverlay() != null) {
++                if (!HAS_RENDERED_OVERLAY_ONCE) {
++                    return;
++                }
++            }
++
++            profilerFiller.push("sodium_console_overlay");
++
++            GuiGraphics drawContext = new GuiGraphics(this.minecraft, this.renderBuffers.bufferSource());
++
++            ConsoleHooks.render(drawContext, GLFW.glfwGetTime());
++
++            drawContext.flush();
++
++            profilerFiller.pop();
++
++            HAS_RENDERED_OVERLAY_ONCE = true;
+             modelViewStack.popMatrix();
+             this.resourcePool.endFrame();
+         }

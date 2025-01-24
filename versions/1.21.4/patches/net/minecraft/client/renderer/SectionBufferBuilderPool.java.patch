@@ -1,0 +1,11 @@
+--- a/net/minecraft/client/renderer/SectionBufferBuilderPool.java
++++ b/net/minecraft/client/renderer/SectionBufferBuilderPool.java
+@@ -13,7 +_,7 @@
+     private final Queue<SectionBufferBuilderPack> freeBuffers;
+     private volatile int freeBufferCount;
+ 
+-    private SectionBufferBuilderPool(List<SectionBufferBuilderPack> freeBuffers) {
++    public SectionBufferBuilderPool(List<SectionBufferBuilderPack> freeBuffers) {
+         this.freeBuffers = Queues.newArrayDeque(freeBuffers);
+         this.freeBufferCount = this.freeBuffers.size();
+     }

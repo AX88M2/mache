@@ -1,0 +1,85 @@
+--- a/net/minecraft/world/level/chunk/PalettedContainer.java
++++ b/net/minecraft/world/level/chunk/PalettedContainer.java
+@@ -8,12 +_,16 @@
+ import it.unimi.dsi.fastutil.ints.IntSet;
+ import java.util.Arrays;
+ import java.util.List;
++import java.util.Objects;
+ import java.util.Optional;
+ import java.util.function.Consumer;
+ import java.util.function.IntUnaryOperator;
+ import java.util.function.Predicate;
+ import java.util.stream.LongStream;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.world.BitStorageExtension;
++import net.caffeinemc.mods.sodium.client.world.PalettedContainerROExtension;
+ import net.minecraft.core.IdMap;
+ import net.minecraft.network.FriendlyByteBuf;
+ import net.minecraft.network.VarInt;
+@@ -24,7 +_,7 @@
+ import net.minecraft.util.ThreadingDetector;
+ import net.minecraft.util.ZeroBitStorage;
+ 
+-public class PalettedContainer<T> implements PaletteResize<T>, PalettedContainerRO<T> {
++public class PalettedContainer<T> implements PaletteResize<T>, PalettedContainerRO<T>, PalettedContainerROExtension<T> {
+     private static final int MIN_PALETTE_BITS = 0;
+     private final PaletteResize<T> dummyPaletteResize = (bits, objectAdded) -> 0;
+     private final IdMap<T> registry;
+@@ -299,9 +_,55 @@
+         }
+     }
+ 
++    @Override
++    public void sodium$unpack(T[] values) {
++        var strategy = Objects.requireNonNull(this.strategy);
++
++        if (values.length != strategy.size()) {
++            throw new IllegalArgumentException("Array is wrong size");
++        }
++
++        var data = Objects.requireNonNull(this.data, "PalettedContainer must have data");
++
++        var storage = (BitStorageExtension) data.storage();
++        storage.sodium$unpack(values, data.palette());
++    }
++
++    @Override
++    public void sodium$unpack(T[] values, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
++        var strategy = Objects.requireNonNull(this.strategy);
++
++        if (values.length != strategy.size()) {
++            throw new IllegalArgumentException("Array is wrong size");
++        }
++
++        var data = Objects.requireNonNull(this.data, "PalettedContainer must have data");
++
++        var storage = data.storage();
++        var palette = data.palette();
++
++        for (int y = minY; y <= maxY; y++) {
++            for (int z = minZ; z <= maxZ; z++) {
++                for (int x = minX; x <= maxX; x++) {
++                    int localBlockIndex = strategy.getIndex(x, y, z);
++
++                    int paletteIndex = storage.get(localBlockIndex);
++                    var paletteValue =  palette.valueFor(paletteIndex);
++
++                    values[localBlockIndex] = paletteValue;
++                }
++            }
++        }
++    }
++
++    @Override
++    public PalettedContainerRO<T> sodium$copy() {
++        return this.copy();
++    }
++
+     record Configuration<T>(Palette.Factory factory, int bits) {
+         public PalettedContainer.Data<T> createData(IdMap<T> registry, PaletteResize<T> paletteResize, int size) {
+-            BitStorage bitStorage = (BitStorage)(this.bits == 0 ? new ZeroBitStorage(size) : new SimpleBitStorage(this.bits, size));
++            BitStorage bitStorage = this.bits == 0 ? new ZeroBitStorage(size) : new SimpleBitStorage(this.bits, size);
+             Palette<T> palette = this.factory.create(this.bits, registry, paletteResize, List.of());
+             return new PalettedContainer.Data<>(this, bitStorage, palette);
+         }

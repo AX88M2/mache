@@ -1,0 +1,28 @@
+--- a/net/minecraft/client/multiplayer/ClientChunkCache.java
++++ b/net/minecraft/client/multiplayer/ClientChunkCache.java
+@@ -9,6 +_,8 @@
+ import java.util.function.BooleanSupplier;
+ import java.util.function.Consumer;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkTrackerHolder;
+ import net.minecraft.client.Minecraft;
+ import net.minecraft.core.SectionPos;
+ import net.minecraft.core.registries.Registries;
+@@ -61,6 +_,7 @@
+             LevelChunk chunk = this.storage.getChunk(index);
+             if (isValidChunk(chunk, chunkPos.x, chunkPos.z)) {
+                 this.storage.drop(index, chunk);
++                ChunkTrackerHolder.get(this.level).onChunkStatusRemoved(chunkPos.x, chunkPos.z, net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkStatus.FLAG_HAS_BLOCK_DATA);
+             }
+         }
+     }
+@@ -118,6 +_,8 @@
+             }
+ 
+             this.level.onChunkLoaded(chunkPos);
++            ChunkTrackerHolder.get(this.level)
++                    .onChunkStatusAdded(x, z, net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkStatus.FLAG_HAS_BLOCK_DATA);
+             return levelChunk;
+         }
+     }
