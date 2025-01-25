@@ -1,23 +1,72 @@
 --- a/net/minecraft/client/renderer/entity/ItemRenderer.java
 +++ b/net/minecraft/client/renderer/entity/ItemRenderer.java
-@@ -5,6 +_,7 @@
+@@ -5,8 +_,19 @@
  import com.mojang.blaze3d.vertex.VertexConsumer;
  import com.mojang.blaze3d.vertex.VertexMultiConsumer;
  import com.mojang.math.MatrixUtil;
 +
  import java.util.List;
  import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.api.util.ColorARGB;
++import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
++import net.caffeinemc.mods.sodium.client.model.quad.BakedQuadView;
++import net.caffeinemc.mods.sodium.client.render.frapi.render.ItemRenderContext;
++import net.caffeinemc.mods.sodium.client.render.immediate.model.BakedModelEncoder;
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteUtil;
++import net.caffeinemc.mods.sodium.client.render.vertex.VertexConsumerUtils;
++import net.caffeinemc.mods.sodium.client.util.DirectionUtil;
++import net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel;
  import net.minecraft.client.Minecraft;
-@@ -36,7 +_,7 @@
+ import net.minecraft.client.renderer.MultiBufferSource;
+ import net.minecraft.client.renderer.RenderType;
+@@ -23,6 +_,8 @@
+ import net.minecraft.world.item.ItemDisplayContext;
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.level.Level;
++import net.minecraft.world.level.levelgen.SingleThreadedRandomSource;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+ 
+ public class ItemRenderer {
+     public static final ResourceLocation ENCHANTED_GLINT_ENTITY = ResourceLocation.withDefaultNamespace("textures/misc/enchanted_glint_entity.png");
+@@ -36,50 +_,64 @@
      public static final int NO_TINT = -1;
      private final ItemModelResolver resolver;
      private final ItemStackRenderState scratchItemStackRenderState = new ItemStackRenderState();
 -
-+    
++    private static final ItemRenderContext.VanillaModelBufferer vanillaBufferer = ItemRenderer::renderModelLists;
++    private static final ThreadLocal<ItemRenderContext> contexts = ThreadLocal.withInitial(() -> new ItemRenderContext(vanillaBufferer));
++    private static final ThreadLocal<RandomSource> random = ThreadLocal.withInitial(() -> new SingleThreadedRandomSource(42L));
      public ItemRenderer(ItemModelResolver resolver) {
          this.resolver = resolver;
      }
-@@ -54,17 +_,7 @@
+ 
+     private static void renderModelLists(BakedModel model, int[] tintLayers, int packedLight, int packedOverlay, PoseStack poseStack, VertexConsumer buffer) {
+-        RandomSource randomSource = RandomSource.create();
++        RandomSource randomSource = random.get();
+         long l = 42L;
+ 
+-        for (Direction direction : Direction.values()) {
+-            randomSource.setSeed(42L);
+-            renderQuadList(poseStack, buffer, model.getQuads(null, direction, randomSource), tintLayers, packedLight, packedOverlay);
++        for (Direction direction : DirectionUtil.ALL_DIRECTIONS) {
++            randomSource.setSeed(l);
++
++            var writer = VertexConsumerUtils.convertOrLog(buffer);
++            var quads = model.getQuads(null, direction, randomSource);
++            if (writer == null) {
++                renderQuadList(poseStack, buffer, model.getQuads(null, direction, randomSource), tintLayers, packedLight, packedOverlay);
++                return;
++            }
++
++            if (!quads.isEmpty()) {
++                renderBakedItemQuads(poseStack.last(), writer, quads, tintLayers, packedLight, packedOverlay);
++            }
++            
+         }
+ 
+-        randomSource.setSeed(42L);
++        randomSource.setSeed(l);
          renderQuadList(poseStack, buffer, model.getQuads(null, null, randomSource), tintLayers, packedLight, packedOverlay);
      }
  
@@ -32,10 +81,47 @@
 -        RenderType renderType,
 -        ItemStackRenderState.FoilType foilType
 -    ) {
+-        VertexConsumer compassFoilBuffer;
+-        if (foilType == ItemStackRenderState.FoilType.SPECIAL) {
+-            PoseStack.Pose pose = poseStack.last().copy();
+-            if (displayContext == ItemDisplayContext.GUI) {
+-                MatrixUtil.mulComponentWise(pose.pose(), 0.5F);
+-            } else if (displayContext.firstPerson()) {
+-                MatrixUtil.mulComponentWise(pose.pose(), 0.75F);
 +    public static void renderItem(ItemDisplayContext displayContext, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay, int[] tintLayers, BakedModel model, RenderType renderType, ItemStackRenderState.FoilType foilType) {
-         VertexConsumer compassFoilBuffer;
-         if (foilType == ItemStackRenderState.FoilType.SPECIAL) {
-             PoseStack.Pose pose = poseStack.last().copy();
++        CallbackInfo callbackInfo11 = new CallbackInfo("renderItem", true);
++        handler$zdc000$sodium$beforeRenderItem(displayContext, poseStack, bufferSource, packedLight, packedOverlay, tintLayers, model, renderType, foilType, callbackInfo11);
++        if (!callbackInfo11.isCancelled()) {
++            VertexConsumer compassFoilBuffer;
++            if (foilType == ItemStackRenderState.FoilType.SPECIAL) {
++                PoseStack.Pose pose = poseStack.last().copy();
++                if (displayContext == ItemDisplayContext.GUI) {
++                    MatrixUtil.mulComponentWise(pose.pose(), 0.5F);
++                } else if (displayContext.firstPerson()) {
++                    MatrixUtil.mulComponentWise(pose.pose(), 0.75F);
++                }
++
++                compassFoilBuffer = getCompassFoilBuffer(bufferSource, renderType, pose);
++            } else {
++                compassFoilBuffer = getFoilBuffer(bufferSource, renderType, true, foilType != ItemStackRenderState.FoilType.NONE);
+             }
+ 
+-            compassFoilBuffer = getCompassFoilBuffer(bufferSource, renderType, pose);
+-        } else {
+-            compassFoilBuffer = getFoilBuffer(bufferSource, renderType, true, foilType != ItemStackRenderState.FoilType.NONE);
++            renderModelLists(model, tintLayers, packedLight, packedOverlay, poseStack, compassFoilBuffer);
+         }
++    }
+ 
+-        renderModelLists(model, tintLayers, packedLight, packedOverlay, poseStack, compassFoilBuffer);
++    private static void handler$zdc000$sodium$beforeRenderItem(ItemDisplayContext itemDisplayContext, PoseStack poseStack, MultiBufferSource multiBufferSource, int light, int overlay, int[] colors, BakedModel model, RenderType renderType, ItemStackRenderState.FoilType foilType, CallbackInfo ci) {
++        if (!((FabricBakedModel) model).isVanillaAdapter()) {
++            contexts.get().renderModel(itemDisplayContext, poseStack, multiBufferSource, light, overlay, model, colors, renderType, foilType);
++            ci.cancel();
++        }
+     }
+ 
+     public static VertexConsumer getArmorFoilBuffer(MultiBufferSource bufferSource, RenderType renderType, boolean hasFoil) {
 @@ -88,7 +_,7 @@
              : bufferSource.getBuffer(renderType);
      }
@@ -45,3 +131,31 @@
          return VertexMultiConsumer.create(
              new SheetedDecalTextureGenerator(bufferSource.getBuffer(RenderType.glint()), pose, 0.0078125F), bufferSource.getBuffer(renderType)
          );
+@@ -160,5 +_,27 @@
+     ) {
+         this.resolver.updateForTopItem(this.scratchItemStackRenderState, itemStack, diplayContext, leftHand, level, entity, seed);
+         this.scratchItemStackRenderState.render(poseStack, bufferSource, combinedLight, combinedOverlay);
++    }
++
++    private static void renderBakedItemQuads(PoseStack.Pose matrices, VertexBufferWriter writer, List<BakedQuad> quads, int[] colors, int light, int overlay) {
++        for (int i = 0; i < quads.size(); i++) {
++            BakedQuad bakedQuad = quads.get(i);
++
++            if (bakedQuad.getVertices().length < 32) {
++                continue; // ignore bad quads
++            }
++
++            BakedQuadView quad = (BakedQuadView) bakedQuad;
++
++            int color = 0xFFFFFFFF;
++
++            if (bakedQuad.isTinted()) {
++                color = ColorARGB.toABGR(getLayerColorSafe(colors, bakedQuad.getTintIndex()));
++            }
++
++            BakedModelEncoder.writeQuadVertices(writer, matrices, quad, color, light, overlay, BakedModelEncoder.shouldMultiplyAlpha());
++
++            SpriteUtil.markSpriteActive(quad.getSprite());
++        }
+     }
+ }

@@ -1,14 +1,19 @@
 --- a/com/mojang/blaze3d/vertex/BufferBuilder.java
 +++ b/com/mojang/blaze3d/vertex/BufferBuilder.java
-@@ -3,11 +_,17 @@
+@@ -3,11 +_,22 @@
  import java.nio.ByteOrder;
  import java.util.stream.Collectors;
  import javax.annotation.Nullable;
 +
 +import net.caffeinemc.mods.sodium.api.memory.MemoryIntrinsics;
++import net.caffeinemc.mods.sodium.api.util.ColorABGR;
 +import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
 +import net.caffeinemc.mods.sodium.api.vertex.serializer.VertexSerializerRegistry;
++import net.caffeinemc.mods.sodium.client.model.quad.ModelQuadView;
++import net.caffeinemc.mods.sodium.client.render.immediate.model.BakedModelEncoder;
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteUtil;
 +import net.caffeinemc.mods.sodium.client.render.vertex.buffer.BufferBuilderExtension;
++import net.minecraft.client.renderer.block.model.BakedQuad;
  import net.minecraft.util.ARGB;
  import net.minecraft.util.Mth;
 +import org.lwjgl.system.MemoryStack;
@@ -19,7 +24,7 @@
      private static final long NOT_BUILDING = -1L;
      private static final long UNKNOWN_ELEMENT = -1L;
      private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
-@@ -263,5 +_,45 @@
+@@ -263,5 +_,92 @@
          } else {
              VertexConsumer.super.addVertex(x, y, z, color, u, v, packedOverlay, packedLight, normalX, normalY, normalZ);
          }
@@ -63,5 +68,52 @@
 +        VertexSerializerRegistry.instance()
 +                .get(format, this.format)
 +                .serialize(src, dst, count);
++    }
++
++    @Override
++    public void putBulkData(PoseStack.Pose matrices, BakedQuad bakedQuad, float r, float g, float b, float a, int light, int overlay) {
++        if (!this.fastFormat) {
++            VertexConsumer.super.putBulkData(matrices, bakedQuad, r, g, b, a, light, overlay);
++
++            SpriteUtil.markSpriteActive(bakedQuad.getSprite());
++
++            return;
++        }
++
++        if (bakedQuad.getVertices().length < 32) {
++            return; // we do not accept quads with less than 4 properly sized vertices
++        }
++
++        VertexBufferWriter writer = VertexBufferWriter.of(this);
++
++        ModelQuadView quad = (ModelQuadView) bakedQuad;
++
++        int color = ColorABGR.pack(r, g, b, a);
++        BakedModelEncoder.writeQuadVertices(writer, matrices, quad, color, light, overlay, false);
++
++        SpriteUtil.markSpriteActive(quad.getSprite());
++    }
++
++    @Override
++    public void putBulkData(PoseStack.Pose matrices, BakedQuad bakedQuad, float[] brightnessTable, float r, float g, float b, float a, int[] light, int overlay, boolean colorize) {
++        if (!this.fastFormat) {
++            VertexConsumer.super.putBulkData(matrices, bakedQuad, brightnessTable, r, g, b, a, light, overlay, colorize);
++
++            SpriteUtil.markSpriteActive(bakedQuad.getSprite());
++
++            return;
++        }
++
++        if (bakedQuad.getVertices().length < 32) {
++            return; // we do not accept quads with less than 4 properly sized vertices
++        }
++
++        VertexBufferWriter writer = VertexBufferWriter.of(this);
++
++        ModelQuadView quad = (ModelQuadView) bakedQuad;
++
++        BakedModelEncoder.writeQuadVertices(writer, matrices, quad, r, g, b, a, brightnessTable, colorize, light, overlay);
++
++        SpriteUtil.markSpriteActive(quad.getSprite());
      }
  }

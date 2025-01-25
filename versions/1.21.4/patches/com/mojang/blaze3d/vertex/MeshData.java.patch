@@ -1,0 +1,11 @@
+--- a/com/mojang/blaze3d/vertex/MeshData.java
++++ b/com/mojang/blaze3d/vertex/MeshData.java
+@@ -11,7 +_,7 @@
+ public class MeshData implements AutoCloseable {
+     private final ByteBufferBuilder.Result vertexBuffer;
+     @Nullable
+-    private ByteBufferBuilder.Result indexBuffer;
++    public ByteBufferBuilder.Result indexBuffer;
+     private final MeshData.DrawState drawState;
+ 
+     public MeshData(ByteBufferBuilder.Result vertexBuffer, MeshData.DrawState drawState) {

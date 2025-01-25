@@ -1,0 +1,60 @@
+--- a/net/minecraft/core/Direction.java
++++ b/net/minecraft/core/Direction.java
+@@ -308,18 +_,45 @@
+     }
+ 
+     public static Direction getApproximateNearest(float x, float y, float z) {
+-        Direction direction = NORTH;
+-        float f = Float.MIN_VALUE;
+-
+-        for (Direction direction1 : VALUES) {
+-            float f1 = x * direction1.normal.getX() + y * direction1.normal.getY() + z * direction1.normal.getZ();
+-            if (f1 > f) {
+-                f = f1;
+-                direction = direction1;
+-            }
+-        }
+-
+-        return direction;
++        // Vanilla quirk: return NORTH if all coordinates are zero
++        if (x == 0 && y == 0 && z == 0)
++            return Direction.NORTH;
++
++        // First choice in ties: negative, positive; Y, Z, X
++        var yM = Math.abs(y);
++        var zM = Math.abs(z);
++        var xM = Math.abs(x);
++
++        if (yM >= zM) {
++            if (yM >= xM) {
++                // Y biggest
++                if (y <= 0) {
++                    return Direction.DOWN;
++                } else /* y > 0 */ {
++                    return Direction.UP;
++                }
++            } else /* zM <= yM < xM */ {
++                // X biggest, fall through
++            }
++        } else /* yM < zM */ {
++            if (zM >= xM) {
++                // Z biggest
++                if (z <= 0) {
++                    return Direction.NORTH;
++                } else /* z > 0 */ {
++                    return Direction.SOUTH;
++                }
++            } else /* yM < zM < xM */ {
++                // X biggest, fall through
++            }
++        }
++
++        // X biggest
++        if (x <= 0) {
++            return Direction.WEST;
++        } else /* x > 0 */ {
++            return Direction.EAST;
++        }
+     }
+ 
+     public static Direction getApproximateNearest(Vec3 vector) {

@@ -1,5 +1,52 @@
 --- a/com/mojang/blaze3d/vertex/PoseStack.java
 +++ b/com/mojang/blaze3d/vertex/PoseStack.java
+@@ -2,6 +_,8 @@
+ 
+ import com.google.common.collect.Queues;
+ import com.mojang.math.MatrixUtil;
++
++import java.util.ArrayDeque;
+ import java.util.Deque;
+ import net.minecraft.Util;
+ import net.minecraft.world.phys.Vec3;
+@@ -11,6 +_,7 @@
+ import org.joml.Vector3f;
+ 
+ public class PoseStack {
++    private final Deque<PoseStack.Pose> cache = new ArrayDeque<>();
+     private final Deque<PoseStack.Pose> poseStack = Util.make(Queues.newArrayDeque(), deque -> {
+         Matrix4f matrix4f = new Matrix4f();
+         Matrix3f matrix3f = new Matrix3f();
+@@ -56,11 +_,27 @@
+     }
+ 
+     public void pushPose() {
+-        this.poseStack.addLast(new PoseStack.Pose(this.poseStack.getLast()));
++        var prev = this.poseStack.getLast();
++
++        PoseStack.Pose entry;
++
++        if (!this.cache.isEmpty()) {
++            entry = this.cache.removeLast();
++            entry.pose()
++                    .set(prev.pose());
++            entry.normal()
++                    .set(prev.normal());
++        } else {
++            entry = new PoseStack.Pose(new Matrix4f(prev.pose()), new Matrix3f(prev.normal()));
++        }
++
++        entry.trustedNormals = prev.trustedNormals;
++
++        this.poseStack.addLast(entry);
+     }
+ 
+     public void popPose() {
+-        this.poseStack.removeLast();
++        this.cache.addLast(this.poseStack.removeLast());
+     }
+ 
+     public PoseStack.Pose last() {
 @@ -93,7 +_,7 @@
      public static final class Pose {
          final Matrix4f pose;

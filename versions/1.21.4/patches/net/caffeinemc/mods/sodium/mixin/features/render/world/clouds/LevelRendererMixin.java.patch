@@ -1,12 +1,11 @@
 --- /dev/null
 +++ b/net/caffeinemc/mods/sodium/mixin/features/render/world/clouds/LevelRendererMixin.java
-@@ -1,0 +_,107 @@
+@@ -1,0 +_,88 @@
 +package net.caffeinemc.mods.sodium.mixin.features.render.world.clouds;
 +
 +import com.mojang.blaze3d.pipeline.RenderTarget;
 +import com.mojang.blaze3d.resource.ResourceHandle;
 +import net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer;
-+import net.minecraft.client.Camera;
 +import net.minecraft.client.CloudStatus;
 +import net.minecraft.client.Minecraft;
 +import net.minecraft.client.multiplayer.ClientLevel;
@@ -15,14 +14,11 @@
 +import net.minecraft.world.phys.Vec3;
 +import org.jetbrains.annotations.Nullable;
 +import org.joml.Matrix4f;
-+import org.spongepowered.asm.mixin.*;
 +import org.spongepowered.asm.mixin.injection.At;
 +import org.spongepowered.asm.mixin.injection.Group;
 +import org.spongepowered.asm.mixin.injection.Inject;
 +import org.spongepowered.asm.mixin.injection.Redirect;
 +import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-+
-+import java.util.Objects;
 +
 +@Mixin(LevelRenderer.class)
 +public class LevelRendererMixin {
@@ -35,8 +31,7 @@
 +    @Final
 +    private Minecraft minecraft;
 +
-+    @Unique
-+    private CloudRenderer cloudRenderer;
++    private CloudRenderer cloudRendererSodium;
 +
 +    /**
 +     * @author jellysquid3
@@ -67,44 +62,30 @@
 +
 +        this.sodium$renderClouds(modelView, projectionMatrix, color);
 +    }
-+
-+    @Unique
-+    private void sodium$renderClouds(Matrix4f matModelView, Matrix4f matProjection, int color) {
-+        if (this.cloudRenderer == null) {
-+            this.cloudRenderer = new CloudRenderer(this.minecraft.getResourceManager());
-+        }
-+
-+        Camera camera = this.minecraft.gameRenderer.getMainCamera();
-+        ClientLevel level = Objects.requireNonNull(this.level);
-+
-+        var ticks = this.ticks;
-+        var partialTicks = this.minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false);
-+
-+        this.cloudRenderer.render(camera, level, matProjection, matModelView, ticks, partialTicks, color);
-+    }
++    
 +
 +    @Inject(method = "onResourceManagerReload(Lnet/minecraft/server/packs/resources/ResourceManager;)V", at = @At("RETURN"))
 +    private void onReload(ResourceManager manager, CallbackInfo ci) {
-+        if (this.cloudRenderer != null) {
-+            this.cloudRenderer.reload(manager);
++        if (this.cloudRendererSodium != null) {
++            this.cloudRendererSodium.reload(manager);
 +        }
 +    }
 +
 +    @Inject(method = "allChanged()V", at = @At("RETURN"))
 +    private void onReload(CallbackInfo ci) {
 +        // will be re-allocated on next use
-+        if (this.cloudRenderer != null) {
-+            this.cloudRenderer.destroy();
-+            this.cloudRenderer = null;
++        if (this.cloudRendererSodium != null) {
++            this.cloudRendererSodium.destroy();
++            this.cloudRendererSodium = null;
 +        }
 +    }
 +
 +    @Inject(method = "close", at = @At("RETURN"))
 +    private void onClose(CallbackInfo ci) {
 +        // will never be re-allocated, as the renderer is shutting down
-+        if (this.cloudRenderer != null) {
-+            this.cloudRenderer.destroy();
-+            this.cloudRenderer = null;
++        if (this.cloudRendererSodium != null) {
++            this.cloudRendererSodium.destroy();
++            this.cloudRendererSodium = null;
 +        }
 +    }
 +}

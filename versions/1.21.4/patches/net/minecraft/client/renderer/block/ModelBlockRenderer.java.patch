@@ -1,21 +1,42 @@
 --- a/net/minecraft/client/renderer/block/ModelBlockRenderer.java
 +++ b/net/minecraft/client/renderer/block/ModelBlockRenderer.java
-@@ -7,6 +_,7 @@
+@@ -7,6 +_,16 @@
  import java.util.BitSet;
  import java.util.List;
  import javax.annotation.Nullable;
 +
++import net.caffeinemc.mods.sodium.api.util.ColorABGR;
++import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
++import net.caffeinemc.mods.sodium.client.model.quad.BakedQuadView;
++import net.caffeinemc.mods.sodium.client.render.frapi.render.NonTerrainBlockRenderContext;
++import net.caffeinemc.mods.sodium.client.render.immediate.model.BakedModelEncoder;
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteUtil;
++import net.caffeinemc.mods.sodium.client.render.vertex.VertexConsumerUtils;
++import net.caffeinemc.mods.sodium.client.util.DirectionUtil;
++import net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
  import net.minecraft.ReportedException;
-@@ -31,23 +_,12 @@
+@@ -23,6 +_,8 @@
+ import net.minecraft.world.level.BlockAndTintGetter;
+ import net.minecraft.world.level.block.Block;
+ import net.minecraft.world.level.block.state.BlockState;
++import net.minecraft.world.level.levelgen.SingleThreadedRandomSource;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+ 
+ public class ModelBlockRenderer {
+     private static final int FACE_CUBIC = 0;
+@@ -31,41 +_,42 @@
      private final BlockColors blockColors;
      private static final int CACHE_SIZE = 100;
      static final ThreadLocal<ModelBlockRenderer.Cache> CACHE = ThreadLocal.withInitial(ModelBlockRenderer.Cache::new);
 -
++    private final ThreadLocal<NonTerrainBlockRenderContext> contexts;
++    private final RandomSource random = new SingleThreadedRandomSource(42L);
 +    
      public ModelBlockRenderer(BlockColors blockColors) {
          this.blockColors = blockColors;
++        contexts = ThreadLocal.withInitial(() -> new NonTerrainBlockRenderContext(blockColors));
      }
  
 -    public void tesselateBlock(
@@ -30,10 +51,53 @@
 -        long seed,
 -        int packedOverlay
 -    ) {
+-        boolean flag = Minecraft.useAmbientOcclusion() && state.getLightEmission() == 0 && model.useAmbientOcclusion();
+-        poseStack.translate(state.getOffset(pos));
 +    public void tesselateBlock(BlockAndTintGetter level, BakedModel model, BlockState state, BlockPos pos, PoseStack poseStack, VertexConsumer consumer, boolean checkSides, RandomSource random, long seed, int packedOverlay) {
-         boolean flag = Minecraft.useAmbientOcclusion() && state.getLightEmission() == 0 && model.useAmbientOcclusion();
-         poseStack.translate(state.getOffset(pos));
++        CallbackInfo callbackInfo16 = new CallbackInfo("tesselateBlock", true);
++        this.handler$zdb000$sodium$onRender(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay, callbackInfo16);
++        if (!callbackInfo16.isCancelled()){
++            boolean flag = Minecraft.useAmbientOcclusion() && state.getLightEmission() == 0 && model.useAmbientOcclusion();
++            poseStack.translate(state.getOffset(pos));
  
+-        try {
+-            if (flag) {
+-                this.tesselateWithAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
+-            } else {
+-                this.tesselateWithoutAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
++            try {
++                if (flag) {
++                    this.tesselateWithAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
++                } else {
++                    this.tesselateWithoutAO(level, model, state, pos, poseStack, consumer, checkSides, random, seed, packedOverlay);
++                }
++            } catch (Throwable var16) {
++                CrashReport crashReport = CrashReport.forThrowable(var16, "Tesselating block model");
++                CrashReportCategory crashReportCategory = crashReport.addCategory("Block model being tesselated");
++                CrashReportCategory.populateBlockDetails(crashReportCategory, level, pos, state);
++                crashReportCategory.setDetail("Using AO", flag);
++                throw new ReportedException(crashReport);
+             }
+-        } catch (Throwable var16) {
+-            CrashReport crashReport = CrashReport.forThrowable(var16, "Tesselating block model");
+-            CrashReportCategory crashReportCategory = crashReport.addCategory("Block model being tesselated");
+-            CrashReportCategory.populateBlockDetails(crashReportCategory, level, pos, state);
+-            crashReportCategory.setDetail("Using AO", flag);
+-            throw new ReportedException(crashReport);
+-        }
+-    }
+-
++        }
++    }
++    private void handler$zdb000$sodium$onRender(BlockAndTintGetter blockView, BakedModel model, BlockState state, BlockPos pos, PoseStack matrix, VertexConsumer buffer, boolean cull, RandomSource rand, long seed, int overlay, CallbackInfo ci){
++        if (!((FabricBakedModel) model).isVanillaAdapter()) {
++            contexts.get().renderModel(blockView, model, state, pos, matrix, buffer, cull, rand, seed, overlay);
++            ci.cancel();
++        }
++    }
+     public void tesselateWithAO(
+         BlockAndTintGetter level,
+         BakedModel model,
 @@ -215,7 +_,7 @@
          );
      }
@@ -43,6 +107,36 @@
          BlockAndTintGetter level, BlockState state, BlockPos pos, int[] vertices, Direction direction, @Nullable float[] shape, BitSet shapeFlags
      ) {
          float f = 32.0F;
+@@ -333,16 +_,20 @@
+         int packedLight,
+         int packedOverlay
+     ) {
+-        RandomSource randomSource = RandomSource.create();
+-        long l = 42L;
+-
+-        for (Direction direction : DIRECTIONS) {
+-            randomSource.setSeed(42L);
+-            renderQuadList(pose, consumer, red, green, blue, model.getQuads(state, direction, randomSource), packedLight, packedOverlay);
++        CallbackInfo callbackInfo17 = new CallbackInfo("renderModel", true);
++        this.handler$zei000$sodium$renderFast(pose, consumer, state, model, red, green, blue, packedLight, packedOverlay, callbackInfo17);
++        if (!callbackInfo17.isCancelled()){
++            RandomSource randomSource = RandomSource.create();
++            long l = 42L;
++
++            for (Direction direction : DIRECTIONS) {
++                randomSource.setSeed(l);
++                renderQuadList(pose, consumer, red, green, blue, model.getQuads(state, direction, randomSource), packedLight, packedOverlay);
++            }
++
++            randomSource.setSeed(l);
++            renderQuadList(pose, consumer, red, green, blue, model.getQuads(state, null, randomSource), packedLight, packedOverlay);
+         }
+-
+-        randomSource.setSeed(42L);
+-        renderQuadList(pose, consumer, red, green, blue, model.getQuads(state, null, randomSource), packedLight, packedOverlay);
+     }
+ 
+     private static void renderQuadList(
 @@ -683,9 +_,9 @@
          }
      }
@@ -56,3 +150,62 @@
  
          public AmbientOcclusionFace() {
          }
+@@ -991,6 +_,58 @@
+ 
+         private SizeInfo(final Direction direction, final boolean flip) {
+             this.shape = direction.get3DDataValue() + (flip ? ModelBlockRenderer.DIRECTIONS.length : 0);
++        }
++    }
++    
++    private static void renderQuads(PoseStack.Pose matrices, VertexBufferWriter writer, int defaultColor, List<BakedQuad> quads, int light, int overlay) {
++        for (int i = 0; i < quads.size(); i++) {
++            BakedQuad bakedQuad = quads.get(i);
++
++            if (bakedQuad.getVertices().length < 32) {
++                continue; // ignore bad quads
++            }
++
++            BakedQuadView quad = (BakedQuadView) bakedQuad;
++
++            int color = quad.hasColor() ? defaultColor : 0xFFFFFFFF;
++
++            BakedModelEncoder.writeQuadVertices(writer, matrices, quad, color, light, overlay, false);
++
++            SpriteUtil.markSpriteActive(quad.getSprite());
++        }
++    }
++
++    private void handler$zei000$sodium$renderFast(PoseStack.Pose entry, VertexConsumer vertexConsumer, BlockState blockState, BakedModel bakedModel, float red, float green, float blue, int light, int overlay, CallbackInfo ci) {
++        var writer = VertexConsumerUtils.convertOrLog(vertexConsumer);
++        if (writer == null) {
++            return;
++        }
++
++        ci.cancel();
++
++        RandomSource random = this.random;
++
++        // Clamp color ranges
++        red = Mth.clamp(red, 0.0F, 1.0F);
++        green = Mth.clamp(green, 0.0F, 1.0F);
++        blue = Mth.clamp(blue, 0.0F, 1.0F);
++
++        int defaultColor = ColorABGR.pack(red, green, blue, 1.0F);
++
++        for (Direction direction : DirectionUtil.ALL_DIRECTIONS) {
++            random.setSeed(42L);
++            List<BakedQuad> quads = bakedModel.getQuads(blockState, direction, random);
++
++            if (!quads.isEmpty()) {
++                renderQuads(entry, writer, defaultColor, quads, light, overlay);
++            }
++        }
++
++        random.setSeed(42L);
++        List<BakedQuad> quads = bakedModel.getQuads(blockState, null, random);
++
++        if (!quads.isEmpty()) {
++            renderQuads(entry, writer, defaultColor, quads, light, overlay);
+         }
+     }
+ }
