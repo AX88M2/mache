@@ -9,14 +9,16 @@
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
  import net.minecraft.ReportedException;
-@@ -65,6 +_,7 @@
+@@ -65,7 +_,9 @@
  import org.joml.Matrix4fStack;
  import org.joml.Quaternionf;
  import org.joml.Vector3f;
 +import org.lwjgl.glfw.GLFW;
  import org.slf4j.Logger;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  
  public class GameRenderer implements AutoCloseable {
+     private static final ResourceLocation BLUR_POST_CHAIN_ID = ResourceLocation.withDefaultNamespace("blur");
 @@ -107,6 +_,7 @@
      private ResourceLocation postEffectId;
      private boolean effectActive;
@@ -25,28 +27,36 @@
  
      public GameRenderer(Minecraft minecraft, ItemInHandRenderer itemInHandRenderer, ResourceManager resourceManager, RenderBuffers renderBuffers) {
          this.minecraft = minecraft;
-@@ -535,6 +_,24 @@
+@@ -471,6 +_,7 @@
+ 
+                 this.minecraft.gui.render(guiGraphics, deltaTracker);
+                 guiGraphics.flush();
++                this.handler$zci000$sodium$onRender(deltaTracker, renderLevel, (CallbackInfo)null, profilerFiller);
+                 RenderSystem.clear(256);
+                 profilerFiller.pop();
+             }
+@@ -535,6 +_,7 @@
              }
  
              guiGraphics.flush();
-+
-+            if (Minecraft.getInstance().getOverlay() != null) {
-+                if (!HAS_RENDERED_OVERLAY_ONCE) {
-+                    return;
-+                }
-+            }
-+
-+            profilerFiller.push("sodium_console_overlay");
-+
-+            GuiGraphics drawContext = new GuiGraphics(this.minecraft, this.renderBuffers.bufferSource());
-+
-+            ConsoleHooks.render(drawContext, GLFW.glfwGetTime());
-+
-+            drawContext.flush();
-+
-+            profilerFiller.pop();
-+
-+            HAS_RENDERED_OVERLAY_ONCE = true;
++            this.handler$zci000$sodium$onRender(deltaTracker, renderLevel, (CallbackInfo)null, profilerFiller);
              modelViewStack.popMatrix();
              this.resourcePool.endFrame();
          }
+@@ -747,5 +_,16 @@
+ 
+     public OverlayTexture overlayTexture() {
+         return this.overlayTexture;
++    }
++
++    private void handler$zci000$sodium$onRender(DeltaTracker deltaTracker, boolean bl, CallbackInfo ci, ProfilerFiller profiler) {
++        if (Minecraft.getInstance().getOverlay() == null || HAS_RENDERED_OVERLAY_ONCE) {
++            profiler.push("sodium_console_overlay");
++            GuiGraphics drawContext = new GuiGraphics(this.minecraft, this.renderBuffers.bufferSource());
++            ConsoleHooks.render(drawContext, GLFW.glfwGetTime());
++            drawContext.flush();
++            profiler.pop();
++            HAS_RENDERED_OVERLAY_ONCE = true;
++        }
+     }
+ }

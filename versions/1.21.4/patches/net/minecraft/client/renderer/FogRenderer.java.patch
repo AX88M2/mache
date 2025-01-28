@@ -1,0 +1,39 @@
+--- a/net/minecraft/client/renderer/FogRenderer.java
++++ b/net/minecraft/client/renderer/FogRenderer.java
+@@ -4,6 +_,8 @@
+ import com.mojang.blaze3d.shaders.FogShape;
+ import java.util.List;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.util.color.FastCubicSampler;
+ import net.minecraft.Util;
+ import net.minecraft.client.Camera;
+ import net.minecraft.client.multiplayer.ClientLevel;
+@@ -90,11 +_,8 @@
+             float f11 = Mth.clamp(Mth.cos(level.getTimeOfDay(partialTick) * (float) (Math.PI * 2)) * 2.0F + 0.5F, 0.0F, 1.0F);
+             BiomeManager biomeManager = level.getBiomeManager();
+             Vec3 vec3 = camera.getPosition().subtract(2.0, 2.0, 2.0).scale(0.25);
+-            Vec3 vec31 = CubicSampler.gaussianSampleVec3(
+-                vec3,
+-                (x, y, z) -> level.effects()
+-                    .getBrightnessDependentFogColor(Vec3.fromRGB24(biomeManager.getNoiseBiomeAtQuart(x, y, z).value().getFogColor()), f11)
+-            );
++            CubicSampler.Vec3Fetcher injectorAllocatedLocal24 = (i, j, k) -> level.effects().getBrightnessDependentFogColor(Vec3.fromRGB24(((Biome)biomeManager.getNoiseBiomeAtQuart(i, j, k).value()).getFogColor()), f11);
++            Vec3 vec31 = redirect$zdk000$sodium$redirectSampleColor(vec3, injectorAllocatedLocal24, camera, partialTick, level, renderDistance, darkenWorldAmount);
+             f4 = (float)vec31.x();
+             f5 = (float)vec31.y();
+             f6 = (float)vec31.z();
+@@ -345,5 +_,13 @@
+ 
+             return voidDarkness;
+         }
++    }
++    
++    private static Vec3 redirect$zdk000$sodium$redirectSampleColor(Vec3 pos, CubicSampler.Vec3Fetcher fetcher, Camera camera, float tickDelta, ClientLevel level, int i, float f) {
++        float u = Mth.clamp(Mth.cos(level.getTimeOfDay(tickDelta) * 6.2831855F) * 2.0F + 0.5F, 0.0F, 1.0F);
++
++        return FastCubicSampler.sampleColor(pos,
++                (x, y, z) -> level.getBiomeManager().getNoiseBiomeAtQuart(x, y, z).value().getFogColor(),
++                (v) -> level.effects().getBrightnessDependentFogColor(v, u));
+     }
+ }

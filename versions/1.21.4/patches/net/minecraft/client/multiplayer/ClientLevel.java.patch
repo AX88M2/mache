@@ -1,6 +1,6 @@
 --- a/net/minecraft/client/multiplayer/ClientLevel.java
 +++ b/net/minecraft/client/multiplayer/ClientLevel.java
-@@ -6,13 +_,15 @@
+@@ -6,13 +_,17 @@
  import com.google.common.collect.Queues;
  import com.mojang.logging.LogUtils;
  import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
@@ -12,11 +12,13 @@
 +
 +import java.util.*;
  import java.util.function.BooleanSupplier;
++import java.util.function.Function;
  import javax.annotation.Nullable;
 +
 +import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkStatus;
 +import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkTracker;
 +import net.caffeinemc.mods.sodium.client.render.chunk.map.ChunkTrackerHolder;
++import net.caffeinemc.mods.sodium.client.util.color.FastCubicSampler;
 +import net.caffeinemc.mods.sodium.client.world.BiomeSeedProvider;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
@@ -58,19 +60,31 @@
          chunk.clearAllBlockEntities();
          this.chunkSource.getLightEngine().setLightEnabled(chunk.getPos(), false);
          this.entityStorage.stopTicking(chunk.getPos());
+@@ -667,9 +_,8 @@
+     public int getSkyColor(Vec3 cameraPosition, float partialTick) {
+         float timeOfDay = this.getTimeOfDay(partialTick);
+         Vec3 vec3 = cameraPosition.subtract(2.0, 2.0, 2.0).scale(0.25);
+-        Vec3 vec31 = CubicSampler.gaussianSampleVec3(
+-            vec3, (x, y, z) -> Vec3.fromRGB24(this.getBiomeManager().getNoiseBiomeAtQuart(x, y, z).value().getSkyColor())
+-        );
++        CubicSampler.Vec3Fetcher injectorAllocatedLocal14 = (ix, jx, k) -> Vec3.fromRGB24(((Biome)this.getBiomeManager().getNoiseBiomeAtQuart(ix, jx, k).value()).getSkyColor());
++        Vec3 vec31 = this.redirect$zdl000$sodium$redirectSampleColor(vec3, injectorAllocatedLocal14);
+         float f = Mth.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.5F;
+         f = Mth.clamp(f, 0.0F, 1.0F);
+         vec31 = vec31.scale(f);
 @@ -878,6 +_,11 @@
          return this.seaLevel;
      }
  
 +    @Override
 +    public ChunkTracker sodium$getTracker() {
-+        return Objects.requireNonNull(this.chunkTracker);;
++        return Objects.requireNonNull(this.chunkTracker);
 +    }
 +
      public static class ClientLevelData implements WritableLevelData {
          private final boolean hardcore;
          private final boolean isFlat;
-@@ -1030,5 +_,10 @@
+@@ -1030,5 +_,15 @@
          @Override
          public void onSectionChange(Entity entity) {
          }
@@ -79,5 +93,10 @@
 +    @Override
 +    public long sodium$getBiomeZoomSeed() {
 +        return this.biomeZoomSeed;
++    }
++    
++    private Vec3 redirect$zdl000$sodium$redirectSampleColor(Vec3 pos, CubicSampler.Vec3Fetcher rgbFetcher) {
++        Level level = (Level) (Object) this;
++        return FastCubicSampler.sampleColor(pos, (x, y, z) -> level.getNoiseBiome(x, y, z).value().getSkyColor(), Function.identity());
      }
  }

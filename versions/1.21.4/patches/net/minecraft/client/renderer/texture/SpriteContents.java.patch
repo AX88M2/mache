@@ -1,0 +1,382 @@
+--- a/net/minecraft/client/renderer/texture/SpriteContents.java
++++ b/net/minecraft/client/renderer/texture/SpriteContents.java
+@@ -1,15 +_,22 @@
+ package net.minecraft.client.renderer.texture;
+ 
++import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
++import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperationRuntime;
+ import com.mojang.blaze3d.platform.NativeImage;
+ import com.mojang.logging.LogUtils;
+ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+ import it.unimi.dsi.fastutil.ints.IntSet;
+-import java.util.ArrayList;
+-import java.util.Arrays;
+-import java.util.Iterator;
+-import java.util.List;
++
++import java.util.*;
+ import java.util.stream.IntStream;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.api.util.ColorABGR;
++import net.caffeinemc.mods.sodium.api.util.ColorMixer;
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteContentsExtension;
++import net.caffeinemc.mods.sodium.client.util.NativeImageHelper;
++import net.caffeinemc.mods.sodium.client.util.color.ColorSRGB;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.ReportedException;
+@@ -19,18 +_,23 @@
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.server.packs.resources.ResourceMetadata;
+ import net.minecraft.util.ARGB;
++import org.lwjgl.system.MemoryUtil;
+ import org.slf4j.Logger;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+ 
+-public class SpriteContents implements Stitcher.Entry, AutoCloseable {
++public class SpriteContents implements Stitcher.Entry, AutoCloseable, SpriteContentsExtension, net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline.SpriteContentsExtension {
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private final ResourceLocation name;
+     final int width;
+     final int height;
+-    private final NativeImage originalImage;
++    private NativeImage originalImage;
+     NativeImage[] byMipLevel;
+     @Nullable
+     private final SpriteContents.AnimatedTexture animatedTexture;
+     private final ResourceMetadata metadata;
++    private boolean active;
++    public boolean sodium$hasTransparentPixels = false;
++    public boolean sodium$hasTranslucentPixels = false;
+ 
+     public SpriteContents(ResourceLocation name, FrameSize frameSize, NativeImage originalImage, ResourceMetadata metadata) {
+         this.name = name;
+@@ -42,7 +_,16 @@
+                 animationMetadataSection -> this.createAnimatedTexture(frameSize, originalImage.getWidth(), originalImage.getHeight(), animationMetadataSection)
+             )
+             .orElse(null);
+-        this.originalImage = originalImage;
++        Operation injectorAllocatedLocal7 = (var0) -> {
++            WrapOperationRuntime.checkArgumentCount(var0, 2, "[net.minecraft.client.renderer.texture.SpriteContents, com.mojang.blaze3d.platform.NativeImage]");
++            ((SpriteContents)var0[0]).originalImage = (NativeImage)var0[1];
++            return (Void)null;
++        };
++        this.wrapOperation$zed001$sodium$beforeGenerateMipLevels(this, originalImage, (var2) -> {
++            WrapOperationRuntime.checkArgumentCount(var2, 2, "[net.minecraft.client.renderer.texture.SpriteContents, com.mojang.blaze3d.platform.NativeImage]");
++            this.wrapOperation$zec000$sodium$beforeGenerateMipLevels((SpriteContents)var2[0], (NativeImage)var2[1], injectorAllocatedLocal7);
++            return (Void)null;
++        });
+         this.byMipLevel = new NativeImage[]{this.originalImage};
+     }
+ 
+@@ -192,6 +_,31 @@
+         }
+     }
+ 
++    @Override
++    public void sodium$setActive(boolean value) {
++        this.active = value;
++    }
++
++    @Override
++    public boolean sodium$hasAnimation() {
++        return this.animatedTexture != null;
++    }
++
++    @Override
++    public boolean sodium$isActive() {
++        return this.active;
++    }
++
++    @Override
++    public boolean sodium$hasTransparentPixels() {
++        return this.sodium$hasTransparentPixels;
++    }
++
++    @Override
++    public boolean sodium$hasTranslucentPixels() {
++        return this.sodium$hasTranslucentPixels;
++    }
++    
+     class AnimatedTexture {
+         final List<SpriteContents.FrameInfo> frames;
+         private final int frameRowSize;
+@@ -235,38 +_,81 @@
+ 
+     final class InterpolationData implements AutoCloseable {
+         private final NativeImage[] activeFrame = new NativeImage[SpriteContents.this.byMipLevel.length];
+-
++        private SpriteContents parent;
++        private static final int STRIDE = 4;
++        
+         InterpolationData() {
+             for (int i = 0; i < this.activeFrame.length; i++) {
+                 int i1 = SpriteContents.this.width >> i;
+                 int i2 = SpriteContents.this.height >> i;
+                 this.activeFrame[i] = new NativeImage(i1, i2, false);
+             }
+-        }
+-
+-        void uploadInterpolatedFrame(int x, int y, SpriteContents.Ticker ticker) {
+-            SpriteContents.AnimatedTexture animatedTexture = ticker.animationInfo;
+-            List<SpriteContents.FrameInfo> list = animatedTexture.frames;
+-            SpriteContents.FrameInfo frameInfo = list.get(ticker.frame);
+-            float f = (float)ticker.subFrame / frameInfo.time;
+-            int i = frameInfo.index;
+-            int i1 = list.get((ticker.frame + 1) % list.size()).index;
+-            if (i != i1) {
+-                for (int i2 = 0; i2 < this.activeFrame.length; i2++) {
+-                    int i3 = SpriteContents.this.width >> i2;
+-                    int i4 = SpriteContents.this.height >> i2;
+-
+-                    for (int i5 = 0; i5 < i4; i5++) {
+-                        for (int i6 = 0; i6 < i3; i6++) {
+-                            int pixel = this.getPixel(animatedTexture, i, i2, i6, i5);
+-                            int pixel1 = this.getPixel(animatedTexture, i1, i2, i6, i5);
+-                            this.activeFrame[i2].setPixel(i6, i5, ARGB.lerp(f, pixel, pixel1));
+-                        }
++            handler$zeb000$sodium$assignParent(SpriteContents.this, null);
++        }
++        
++        public void handler$zeb000$sodium$assignParent(SpriteContents parent, CallbackInfo ci) {
++            this.parent = parent;
++        }
++        
++        void uploadInterpolatedFrame(int x, int y, SpriteContents.Ticker arg) {
++            SpriteContents.AnimatedTexture animation = arg.animationInfo;
++            SpriteContents.AnimatedTexture animation2 = arg.animationInfo;
++            List<SpriteContents.FrameInfo> frames = animation.frames;
++            FrameInfo animationFrame = frames.get(arg.frame);
++
++            int curIndex = animationFrame.index();
++            int nextIndex = animation2.frames.get((arg.frame + 1) % frames.size()).index();
++
++            if (curIndex == nextIndex) {
++                return;
++            }
++
++            // The mix factor between the current and next frame
++            float mix = 1.0F - (float) arg.subFrame / (float) animationFrame.time;
++
++            for (int layer = 0; layer < this.activeFrame.length; layer++) {
++                int width = this.parent.width() >> layer;
++                int height = this.parent.height() >> layer;
++
++                int curX = ((curIndex % animation2.frameRowSize) * width);
++                int curY = ((curIndex / animation2.frameRowSize) * height);
++
++                int nextX = ((nextIndex % animation2.frameRowSize) * width);
++                int nextY = ((nextIndex / animation2.frameRowSize) * height);
++
++                NativeImage src = this.activeFrame[layer];
++                NativeImage dst = this.activeFrame[layer];
++
++                long ppSrcPixel = NativeImageHelper.getPointerRGBA(src);
++                long ppDstPixel = NativeImageHelper.getPointerRGBA(dst);
++
++                for (int layerY = 0; layerY < height; layerY++) {
++                    // Pointers to the pixel array for the current and next frame
++                    long pRgba1 = ppSrcPixel + (curX + (long) (curY + layerY) * src.getWidth()) * STRIDE;
++                    long pRgba2 = ppSrcPixel + (nextX + (long) (nextY + layerY) * src.getWidth()) * STRIDE;
++
++                    for (int layerX = 0; layerX < width; layerX++) {
++                        int rgba1 = MemoryUtil.memGetInt(pRgba1);
++                        int rgba2 = MemoryUtil.memGetInt(pRgba2);
++
++                        // Mix the RGB components and truncate the A component
++                        int mixedRgb = ColorMixer.mix(rgba1, rgba2, mix) & 0x00FFFFFF;
++
++                        // Take the A component from the source pixel
++                        int alpha = rgba1 & 0xFF000000;
++
++                        // Update the pixel within the interpolated frame using the combined RGB and A components
++                        MemoryUtil.memPutInt(ppDstPixel, mixedRgb | alpha);
++
++                        pRgba1 += STRIDE;
++                        pRgba2 += STRIDE;
++
++                        ppDstPixel += STRIDE;
+                     }
+                 }
+-
+-                SpriteContents.this.upload(x, y, 0, 0, this.activeFrame);
+             }
++
++            this.parent.upload(x, y, 0, 0, this.activeFrame);
+         }
+ 
+         private int getPixel(SpriteContents.AnimatedTexture animatedTexture, int frameIndex, int mipLevel, int x, int y) {
+@@ -291,26 +_,33 @@
+         final SpriteContents.AnimatedTexture animationInfo;
+         @Nullable
+         private final SpriteContents.InterpolationData interpolationData;
++        private SpriteContents parent;
+ 
+         Ticker(final SpriteContents.AnimatedTexture animationInfo, @Nullable final SpriteContents.InterpolationData interpolationData) {
+             this.animationInfo = animationInfo;
+             this.interpolationData = interpolationData;
++            this.handler$zea000$sodium$assignParent(SpriteContents.this, animationInfo, interpolationData, (CallbackInfo)null);
+         }
+ 
+         @Override
+         public void tickAndUpload(int x, int y) {
+-            this.subFrame++;
+-            SpriteContents.FrameInfo frameInfo = this.animationInfo.frames.get(this.frame);
+-            if (this.subFrame >= frameInfo.time) {
+-                int i = frameInfo.index;
+-                this.frame = (this.frame + 1) % this.animationInfo.frames.size();
+-                this.subFrame = 0;
+-                int i1 = this.animationInfo.frames.get(this.frame).index;
+-                if (i != i1) {
+-                    this.animationInfo.uploadFrame(x, y, i1);
++            CallbackInfo callbackInfo6 = new CallbackInfo("tickAndUpload", true);
++            this.handler$zea000$sodium$preTick(callbackInfo6);
++            if (!callbackInfo6.isCancelled()){
++                this.subFrame++;
++                SpriteContents.FrameInfo frameInfo = this.animationInfo.frames.get(this.frame);
++                if (this.subFrame >= frameInfo.time) {
++                    int i = frameInfo.index;
++                    this.frame = (this.frame + 1) % this.animationInfo.frames.size();
++                    this.subFrame = 0;
++                    int i1 = this.animationInfo.frames.get(this.frame).index;
++                    if (i != i1) {
++                        this.animationInfo.uploadFrame(x, y, i1);
++                    }
++                } else if (this.interpolationData != null) {
++                    this.interpolationData.uploadInterpolatedFrame(x, y, this);
+                 }
+-            } else if (this.interpolationData != null) {
+-                this.interpolationData.uploadInterpolatedFrame(x, y, this);
++                this.handler$zea000$sodium$postTick((CallbackInfo)null);
+             }
+         }
+ 
+@@ -320,5 +_,126 @@
+                 this.interpolationData.close();
+             }
+         }
++        
++        public void handler$zea000$sodium$assignParent(SpriteContents spriteContents, AnimatedTexture animation, InterpolationData interpolation, CallbackInfo ci) {
++            this.parent = spriteContents;
++        }
++
++        private void handler$zea000$sodium$preTick(CallbackInfo ci) {
++            SpriteContentsExtension parent = this.parent;
++
++            boolean onDemand = SodiumClientMod.options().performance.animateOnlyVisibleTextures;
++
++            if (onDemand && !parent.sodium$isActive()) {
++                this.subFrame++;
++                List<SpriteContents.FrameInfo> frames = this.animationInfo.frames;
++                if (this.subFrame >= frames.get(this.frame).time) {
++                    this.frame = (this.frame + 1) % frames.size();
++                    this.subFrame = 0;
++                }
++                ci.cancel();
++            }
++        }
++
++        private void handler$zea000$sodium$postTick(CallbackInfo ci) {
++            SpriteContentsExtension parent = this.parent;
++            parent.sodium$setActive(false);
++        }
++    }
++
++    /**
++     * Fixes a common issue in image editing programs where fully transparent pixels are saved with fully black colors.
++     *
++     * This causes issues with mipmapped texture filtering, since the black color is used to calculate the final color
++     * even though the alpha value is zero. While ideally it would be disregarded, we do not control that. Instead,
++     * this code tries to calculate a decent average color to assign to these fully-transparent pixels so that their
++     * black color does not leak over into sampling.
++     */
++    private static void sodium$fillInTransparentPixelColors(NativeImage nativeImage) {
++        final long ppPixel = NativeImageHelper.getPointerRGBA(nativeImage);
++        final int pixelCount = nativeImage.getHeight() * nativeImage.getWidth();
++
++        // Calculate an average color from all pixels that are not completely transparent.
++        // This average is weighted based on the (non-zero) alpha value of the pixel.
++        float r = 0.0f;
++        float g = 0.0f;
++        float b = 0.0f;
++
++        float totalWeight = 0.0f;
++
++        for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
++            long pPixel = ppPixel + (pixelIndex * 4L);
++
++            int color = MemoryUtil.memGetInt(pPixel);
++            int alpha = ColorABGR.unpackAlpha(color);
++
++            // Ignore all fully-transparent pixels for the purposes of computing an average color.
++            if (alpha != 0) {
++                float weight = (float) alpha;
++
++                // Make sure to convert to linear space so that we don't lose brightness.
++                r += ColorSRGB.srgbToLinear(ColorABGR.unpackRed(color)) * weight;
++                g += ColorSRGB.srgbToLinear(ColorABGR.unpackGreen(color)) * weight;
++                b += ColorSRGB.srgbToLinear(ColorABGR.unpackBlue(color)) * weight;
++
++                totalWeight += weight;
++            }
++        }
++
++        // Bail if none of the pixels are semi-transparent.
++        if (totalWeight == 0.0f) {
++            return;
++        }
++
++        r /= totalWeight;
++        g /= totalWeight;
++        b /= totalWeight;
++
++        // Convert that color in linear space back to sRGB.
++        // Use an alpha value of zero - this works since we only replace pixels with an alpha value of 0.
++        int averageColor = ColorSRGB.linearToSrgb(r, g, b, 0);
++
++        for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
++            long pPixel = ppPixel + (pixelIndex * 4);
++
++            int color = MemoryUtil.memGetInt(pPixel);
++            int alpha = ColorABGR.unpackAlpha(color);
++
++            // Replace the color values of pixels which are fully transparent, since they have no color data.
++            if (alpha == 0) {
++                MemoryUtil.memPutInt(pPixel, averageColor);
++            }
++        }
++    }
++
++    private void wrapOperation$zed001$sodium$beforeGenerateMipLevels(SpriteContents instance, NativeImage nativeImage, Operation original) {
++        this.scanSpriteContents(nativeImage);
++        original.call(instance, nativeImage);
++    }
++
++    private void scanSpriteContents(NativeImage nativeImage) {
++        final long ppPixel = NativeImageHelper.getPointerRGBA(nativeImage);
++        final int pixelCount = nativeImage.getHeight() * nativeImage.getWidth();
++
++        for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
++            int color = MemoryUtil.memGetInt(ppPixel + (pixelIndex * 4L));
++            int alpha = ColorABGR.unpackAlpha(color);
++
++            // 25 is used as the threshold since the alpha cutoff is 0.1
++            if (alpha <= 25) { // 0.1 * 255
++                this.sodium$hasTransparentPixels = true;
++            } else if (alpha < 255) {
++                this.sodium$hasTranslucentPixels = true;
++            }
++        }
++
++        // the image contains transparency also if there are translucent pixels,
++        // since translucent pixels prevent a downgrade to the opaque render pass just as transparent pixels do
++        this.sodium$hasTransparentPixels |= this.sodium$hasTranslucentPixels;
++    }
++
++    private void wrapOperation$zec000$sodium$beforeGenerateMipLevels(SpriteContents instance, NativeImage nativeImage, Operation original) {
++        sodium$fillInTransparentPixelColors(nativeImage);
++        original.call(instance, nativeImage);
+     }
+ }

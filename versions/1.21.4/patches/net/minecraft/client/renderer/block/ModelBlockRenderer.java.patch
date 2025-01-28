@@ -98,6 +98,14 @@
      public void tesselateWithAO(
          BlockAndTintGetter level,
          BakedModel model,
+@@ -187,6 +_,7 @@
+         int lightmap3,
+         int packedOverlay
+     ) {
++        SpriteUtil.markSpriteActive(quad.getSprite());
+         float f;
+         float f1;
+         float f2;
 @@ -215,7 +_,7 @@
          );
      }

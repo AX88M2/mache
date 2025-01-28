@@ -1,0 +1,10 @@
+--- /dev/null
++++ b/com/llamalad7/mixinextras/injector/wrapoperation/IncorrectArgumentCountException.java
+@@ -1,0 +_,7 @@
++package com.llamalad7.mixinextras.injector.wrapoperation;
++
++class IncorrectArgumentCountException extends RuntimeException {
++    IncorrectArgumentCountException(String message) {
++        super(message);
++    }
++}

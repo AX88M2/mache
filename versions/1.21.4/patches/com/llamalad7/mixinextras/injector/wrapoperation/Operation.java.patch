@@ -1,0 +1,9 @@
+--- /dev/null
++++ b/com/llamalad7/mixinextras/injector/wrapoperation/Operation.java
+@@ -1,0 +_,6 @@
++package com.llamalad7.mixinextras.injector.wrapoperation;
++
++@FunctionalInterface
++public interface Operation<R> {
++    R call(Object... var1);
++}

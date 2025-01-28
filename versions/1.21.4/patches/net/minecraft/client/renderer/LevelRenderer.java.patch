@@ -1,9 +1,25 @@
 --- a/net/minecraft/client/renderer/LevelRenderer.java
 +++ b/net/minecraft/client/renderer/LevelRenderer.java
-@@ -27,14 +_,17 @@
+@@ -11,14 +_,10 @@
+ import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
+ import com.mojang.blaze3d.resource.RenderTargetDescriptor;
+ import com.mojang.blaze3d.resource.ResourceHandle;
+-import com.mojang.blaze3d.shaders.Uniform;
+ import com.mojang.blaze3d.systems.RenderSystem;
+ import com.mojang.blaze3d.vertex.PoseStack;
+ import com.mojang.blaze3d.vertex.SheetedDecalTextureGenerator;
+-import com.mojang.blaze3d.vertex.VertexBuffer;
+ import com.mojang.blaze3d.vertex.VertexConsumer;
+-import com.mojang.blaze3d.vertex.VertexFormat;
+-import com.mojang.blaze3d.vertex.VertexMultiConsumer;
+ import com.mojang.logging.LogUtils;
+ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+@@ -26,15 +_,17 @@
+ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
  import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
  import it.unimi.dsi.fastutil.objects.ObjectArrayList;
- import it.unimi.dsi.fastutil.objects.ObjectListIterator;
+-import it.unimi.dsi.fastutil.objects.ObjectListIterator;
 -import java.util.ArrayList;
 -import java.util.Collection;
 -import java.util.Iterator;
@@ -25,6 +41,14 @@
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
  import net.minecraft.ReportedException;
+@@ -70,7 +_,6 @@
+ import net.minecraft.util.VisibleForDebug;
+ import net.minecraft.util.profiling.Profiler;
+ import net.minecraft.util.profiling.ProfilerFiller;
+-import net.minecraft.util.profiling.Zone;
+ import net.minecraft.world.TickRateManager;
+ import net.minecraft.world.effect.MobEffects;
+ import net.minecraft.world.entity.Entity;
 @@ -90,8 +_,9 @@
  import org.joml.Matrix4fStack;
  import org.joml.Vector4f;
@@ -42,7 +66,7 @@
      private int translucencyResortIterationIndex;
 -
 +    private SodiumWorldRenderer renderer;
-+    private net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer cloudRendererSodium;
++    private net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer cloudRenderer$sodium;
 +    
      public LevelRenderer(
          Minecraft minecraft,
@@ -55,22 +79,17 @@
      }
  
      public void tickParticles(Camera camera) {
-@@ -166,11 +_,18 @@
+@@ -166,11 +_,13 @@
  
          this.skyRenderer.close();
          this.cloudRenderer.close();
-+        if (this.cloudRendererSodium != null) {
-+            this.cloudRendererSodium.destroy();
-+            this.cloudRendererSodium = null;
-+        }
++        this.handler$zdj000$sodium$onClose((CallbackInfo)null);
      }
  
      @Override
      public void onResourceManagerReload(ResourceManager resourceManager) {
          this.initOutline();
-+        if (this.cloudRendererSodium != null) {
-+            this.cloudRendererSodium.reload(resourceManager);
-+        }
++        this.handler$zdj000$sodium$onReload(resourceManager, (CallbackInfo)null);
      }
  
      public void initOutline() {
@@ -88,22 +107,14 @@
      }
  
      private void clearVisibleSections() {
-@@ -247,16 +_,27 @@
+@@ -247,16 +_,19 @@
      }
  
      public void allChanged() {
 -        if (this.level != null) {
 +        if (this.level == null) {
-+            RenderDevice.enterManagedCode();
-+            try {
-+                this.renderer.reload();
-+            } finally {
-+                RenderDevice.exitManagedCode();
-+            }
-+            if (this.cloudRendererSodium != null) {
-+                this.cloudRendererSodium.destroy();
-+                this.cloudRendererSodium = null;
-+            }
++            this.handler$zcd000$sodium$onReload((CallbackInfo)null);
++            this.handler$zdj001$sodium$onReload((CallbackInfo)null);
 +        }else {
              this.level.clearTintCaches();
              if (this.sectionRenderDispatcher == null) {
@@ -123,7 +134,7 @@
                  );
              } else {
                  this.sectionRenderDispatcher.setLevel(this.level);
-@@ -274,11 +_,22 @@
+@@ -274,14 +_,17 @@
                  this.globalBlockEntities.clear();
              }
  
@@ -133,20 +144,16 @@
              this.clearVisibleSections();
              Camera mainCamera = this.minecraft.gameRenderer.getMainCamera();
              this.viewArea.repositionCamera(SectionPos.of(mainCamera.getPosition()));
-+            
-+            RenderDevice.enterManagedCode();
-+            try {
-+                this.renderer.reload();
-+            } finally {
-+                RenderDevice.exitManagedCode();
-+            }
-+            if (this.cloudRendererSodium != null) {
-+                this.cloudRendererSodium.destroy();
-+                this.cloudRendererSodium = null;
-+            }
++
++            this.handler$zcd000$sodium$onReload((CallbackInfo)null);
++            this.handler$zdj001$sodium$onReload((CallbackInfo)null);
          }
      }
- 
+-
++    
+     public void resize(int width, int height) {
+         this.needsUpdate();
+         if (this.entityOutlineTarget != null) {
 @@ -290,17 +_,7 @@
      }
  
@@ -402,7 +409,7 @@
  
      public void captureFrustum() {
          this.captureFrustum = true;
-@@ -1076,38 +_,48 @@
+@@ -1076,38 +_,52 @@
                  FramePass framePass = frameGraphBuilder.addPass("sky");
                  this.targets.main = framePass.readsAndWrites(this.targets.main);
                  framePass.executes(() -> {
@@ -468,6 +475,10 @@
 -
 +    
 +    private void handler$zdm000$sodium$preRenderSky(CallbackInfo ci) {
++        // Cancels sky rendering when the camera is submersed underwater.
++        // This prevents the sky from being visible through chunks culled by Sodium's fog occlusion.
++        // Fixes https://bugs.mojang.com/browse/MC-152504.
++        // Credit to bytzo for noticing the change in 1.18.2.
 +        if (Minecraft.getInstance().gameRenderer.getMainCamera().getFluidInCamera() != FogType.NONE || this.doesMobEffectBlockSky(Minecraft.getInstance().gameRenderer.getMainCamera())) {
 +            ci.cancel();
 +        }
@@ -580,7 +591,7 @@
      }
  
      @Nullable
-@@ -1403,5 +_,24 @@
+@@ -1403,5 +_,56 @@
  
      public CloudRenderer getCloudRenderer() {
          return this.cloudRenderer;
@@ -592,8 +603,8 @@
 +    }
 +    
 +    private void sodium$renderClouds(Matrix4f matModelView, Matrix4f matProjection, int color) {
-+        if (this.cloudRendererSodium == null) {
-+            this.cloudRendererSodium = new net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer(this.minecraft.getResourceManager());
++        if (this.cloudRenderer$sodium == null) {
++            this.cloudRenderer$sodium = new net.caffeinemc.mods.sodium.client.render.immediate.CloudRenderer(this.minecraft.getResourceManager());
 +        }
 +
 +        Camera camera = this.minecraft.gameRenderer.getMainCamera();
@@ -602,6 +613,38 @@
 +        var ticks = this.ticks;
 +        var partialTicks = this.minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 +
-+        this.cloudRendererSodium.render(camera, level, matProjection, matModelView, ticks, partialTicks, color);
++        this.cloudRenderer$sodium.render(camera, level, matProjection, matModelView, ticks, partialTicks, color);
++    }
++
++    private void handler$zdj000$sodium$onReload(ResourceManager manager, CallbackInfo ci) {
++        if (this.cloudRenderer$sodium != null) {
++            this.cloudRenderer$sodium.reload(manager);
++        }
++    }
++
++    private void handler$zcd000$sodium$onReload(CallbackInfo ci) {
++        RenderDevice.enterManagedCode();
++
++        try {
++            this.renderer.reload();
++        } finally {
++            RenderDevice.exitManagedCode();
++        }
++
++    }
++
++    private void handler$zdj001$sodium$onReload(CallbackInfo ci) {
++        if (this.cloudRenderer$sodium != null) {
++            this.cloudRenderer$sodium.destroy();
++            this.cloudRenderer$sodium = null;
++        }
++    }
++
++    private void handler$zdj000$sodium$onClose(CallbackInfo ci) {
++        if (this.cloudRenderer$sodium != null) {
++            this.cloudRenderer$sodium.destroy();
++            this.cloudRenderer$sodium = null;
++        }
++
      }
  }

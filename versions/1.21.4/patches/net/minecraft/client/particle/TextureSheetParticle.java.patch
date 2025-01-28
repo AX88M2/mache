@@ -1,0 +1,42 @@
+--- a/net/minecraft/client/particle/TextureSheetParticle.java
++++ b/net/minecraft/client/particle/TextureSheetParticle.java
+@@ -1,11 +_,15 @@
+ package net.minecraft.client.particle;
+ 
++import com.mojang.blaze3d.vertex.VertexConsumer;
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteUtil;
++import net.minecraft.client.Camera;
+ import net.minecraft.client.multiplayer.ClientLevel;
+ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+ 
+ public abstract class TextureSheetParticle extends SingleQuadParticle {
+     protected TextureAtlasSprite sprite;
+-
++    private boolean shouldTickSprite;
++    
+     protected TextureSheetParticle(ClientLevel level, double x, double y, double z) {
+         super(level, x, y, z);
+     }
+@@ -16,6 +_,7 @@
+ 
+     protected void setSprite(TextureAtlasSprite sprite) {
+         this.sprite = sprite;
++        this.shouldTickSprite = SpriteUtil.hasAnimation(sprite);
+     }
+ 
+     @Override
+@@ -46,5 +_,14 @@
+         if (!this.removed) {
+             this.setSprite(sprite.get(this.age, this.lifetime));
+         }
++    }
++
++    @Override
++    public void render(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
++        if (this.shouldTickSprite) {
++            SpriteUtil.markSpriteActive(this.sprite);
++        }
++
++        super.render(vertexConsumer, camera, tickDelta);
+     }
+ }

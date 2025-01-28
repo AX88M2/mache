@@ -1,0 +1,129 @@
+--- a/net/minecraft/world/level/biome/Biome.java
++++ b/net/minecraft/world/level/biome/Biome.java
+@@ -7,6 +_,8 @@
+ import it.unimi.dsi.fastutil.longs.Long2FloatLinkedOpenHashMap;
+ import java.util.Optional;
+ import javax.annotation.Nullable;
++
++import net.caffeinemc.mods.sodium.client.world.biome.BiomeColorMaps;
+ import net.minecraft.Util;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Holder;
+@@ -76,12 +_,20 @@
+         map.defaultReturnValue(Float.NaN);
+         return map;
+     }));
++    private boolean hasCustomGrassColor;
++    private int customGrassColor;
++    private boolean hasCustomFoliageColor;
++    private int customFoliageColor;
++    private int defaultColorIndex;
++    private BiomeSpecialEffects cachedSpecialEffects;
++
+ 
+     Biome(Biome.ClimateSettings climateSettings, BiomeSpecialEffects specialEffects, BiomeGenerationSettings generationSettings, MobSpawnSettings mobSettings) {
+         this.climateSettings = climateSettings;
+         this.generationSettings = generationSettings;
+         this.mobSettings = mobSettings;
+         this.specialEffects = specialEffects;
++        setupColors();
+     }
+ 
+     public int getSkyColor() {
+@@ -198,9 +_,26 @@
+         return this.specialEffects.getFogColor();
+     }
+ 
+-    public int getGrassColor(double posX, double posZ) {
+-        int i = this.specialEffects.getGrassColorOverride().orElseGet(this::getGrassColorFromTexture);
+-        return this.specialEffects.getGrassColorModifier().modifyColor(posX, posZ, i);
++    public int getGrassColor(double x, double z) {
++        if (this.specialEffects != this.cachedSpecialEffects) {
++            setupColors();
++        }
++
++        int color;
++
++        if (this.hasCustomGrassColor) {
++            color = this.customGrassColor;
++        } else {
++            color = BiomeColorMaps.getGrassColor(this.defaultColorIndex);
++        }
++
++        var modifier = this.cachedSpecialEffects.getGrassColorModifier();
++
++        if (modifier != BiomeSpecialEffects.GrassColorModifier.NONE) {
++            color = modifier.modifyColor(x, z, color);
++        }
++
++        return color;
+     }
+ 
+     private int getGrassColorFromTexture() {
+@@ -210,7 +_,19 @@
+     }
+ 
+     public int getFoliageColor() {
+-        return this.specialEffects.getFoliageColorOverride().orElseGet(this::getFoliageColorFromTexture);
++        if (this.specialEffects != this.cachedSpecialEffects) {
++            setupColors();
++        }
++
++        int color;
++
++        if (this.hasCustomFoliageColor) {
++            color = this.customFoliageColor;
++        } else {
++            color = BiomeColorMaps.getFoliageColor(this.defaultColorIndex);
++        }
++
++        return color;
+     }
+ 
+     private int getFoliageColorFromTexture() {
+@@ -345,7 +_,7 @@
+         }
+     }
+ 
+-    record ClimateSettings(boolean hasPrecipitation, float temperature, Biome.TemperatureModifier temperatureModifier, float downfall) {
++    public record ClimateSettings(boolean hasPrecipitation, float temperature, Biome.TemperatureModifier temperatureModifier, float downfall) {
+         public static final MapCodec<Biome.ClimateSettings> CODEC = RecordCodecBuilder.mapCodec(
+             instance -> instance.group(
+                     Codec.BOOL.fieldOf("has_precipitation").forGetter(settings -> settings.hasPrecipitation),
+@@ -418,5 +_,36 @@
+         public String getSerializedName() {
+             return this.name;
+         }
++    }
++    
++    private void setupColors() {
++        this.cachedSpecialEffects = specialEffects;
++
++        var grassColor = this.cachedSpecialEffects.getGrassColorOverride();
++
++        if (grassColor.isPresent()) {
++            this.hasCustomGrassColor = true;
++            this.customGrassColor = grassColor.get();
++        } else {
++            this.hasCustomGrassColor = false;
++        }
++
++        var foliageColor = this.cachedSpecialEffects.getFoliageColorOverride();
++
++        if (foliageColor.isPresent()) {
++            this.hasCustomFoliageColor = true;
++            this.customFoliageColor = foliageColor.get();
++        } else {
++            this.hasCustomFoliageColor = false;
++        }
++
++        this.defaultColorIndex = this.getDefaultColorIndex();
++    }
++    
++    private int getDefaultColorIndex() {
++        double temperature = Mth.clamp(this.climateSettings.temperature(), 0.0F, 1.0F);
++        double humidity = Mth.clamp(this.climateSettings.downfall(), 0.0F, 1.0F);
++
++        return BiomeColorMaps.getIndex(temperature, humidity);
+     }
+ }

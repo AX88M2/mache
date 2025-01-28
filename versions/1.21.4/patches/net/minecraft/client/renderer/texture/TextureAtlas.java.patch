@@ -1,17 +1,19 @@
 --- a/net/minecraft/client/renderer/texture/TextureAtlas.java
 +++ b/net/minecraft/client/renderer/texture/TextureAtlas.java
-@@ -13,13 +_,16 @@
+@@ -13,13 +_,18 @@
  import java.util.Map;
  import java.util.Map.Entry;
  import javax.annotation.Nullable;
 +
 +import net.caffeinemc.mods.sodium.client.render.texture.SpriteFinderCache;
++import net.caffeinemc.mods.sodium.client.render.texture.SpriteUtil;
 +import net.fabricmc.fabric.impl.renderer.SpriteFinderImpl;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
  import net.minecraft.ReportedException;
  import net.minecraft.resources.ResourceLocation;
  import org.slf4j.Logger;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  
 -public class TextureAtlas extends AbstractTexture implements Dumpable, Tickable {
 +public class TextureAtlas extends AbstractTexture implements Dumpable, Tickable, SpriteFinderImpl.SpriteFinderAccess {
@@ -37,7 +39,15 @@
      }
  
      @Override
-@@ -150,11 +_,23 @@
+@@ -129,6 +_,7 @@
+         if (textureAtlasSprite == null) {
+             throw new IllegalStateException("Tried to lookup sprite, but atlas is not initialized");
+         } else {
++            this.handler$zdo000$sodium$preReturnSprite(new CallbackInfoReturnable("getSprite", false, textureAtlasSprite));
+             return textureAtlasSprite;
+         }
+     }
+@@ -150,11 +_,30 @@
          return this.maxSupportedTextureSize;
      }
  
@@ -61,5 +71,12 @@
 +        }
 +
 +        return result;
++    }
++    
++    private void handler$zdo000$sodium$preReturnSprite(CallbackInfoReturnable cir) {
++        TextureAtlasSprite sprite = (TextureAtlasSprite)cir.getReturnValue();
++        if (sprite != null) {
++            SpriteUtil.markSpriteActive(sprite);
++        }
      }
  }

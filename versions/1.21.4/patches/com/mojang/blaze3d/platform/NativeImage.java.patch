@@ -1,0 +1,11 @@
+--- a/com/mojang/blaze3d/platform/NativeImage.java
++++ b/com/mojang/blaze3d/platform/NativeImage.java
+@@ -45,7 +_,7 @@
+     private final int width;
+     private final int height;
+     private final boolean useStbFree;
+-    private long pixels;
++    public long pixels;
+     private final long size;
+ 
+     public NativeImage(int width, int height, boolean useCalloc) {
