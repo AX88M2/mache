@@ -170,7 +170,7 @@
 +                int nextX = ((nextIndex % animation2.frameRowSize) * width);
 +                int nextY = ((nextIndex / animation2.frameRowSize) * height);
 +
-+                NativeImage src = this.activeFrame[layer];
++                NativeImage src = this.parent.byMipLevel[layer];
 +                NativeImage dst = this.activeFrame[layer];
 +
 +                long ppSrcPixel = NativeImageHelper.getPointerRGBA(src);
