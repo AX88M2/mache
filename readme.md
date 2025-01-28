@@ -34,3 +34,8 @@ License
 
 The code in this repository, as well as the patches, are licensed under [LGPL-3.0-only](license.txt). The decompiled
 code is Mojang's proprietary code and not part of the licensed work.
+
+
+Mods
+------
+[Sodium](https://github.com/CaffeineMC/sodium/tree/821d47ff9761b4b5f07793a8ddd55c0451e1add9)
