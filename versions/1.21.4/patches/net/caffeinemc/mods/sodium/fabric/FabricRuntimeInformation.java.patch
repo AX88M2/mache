@@ -11,7 +11,7 @@
 +public class FabricRuntimeInformation implements PlatformRuntimeInformation {
 +    @Override
 +    public boolean isDevelopmentEnvironment() {
-+        return true;
++        return false;
 +    }
 +
 +    @Override

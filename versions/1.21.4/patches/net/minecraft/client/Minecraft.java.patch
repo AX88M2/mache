@@ -39,7 +39,7 @@
          this.fixerUpper = DataFixers.getDataFixer();
          this.toastManager = new ToastManager(this);
 +        try {
-+            FileUtil.createDirectoriesSafe(Minecraft.getInstance().gameDirectory.getAbsoluteFile().toPath().resolve("config").resolve("fabric"));
++            FileUtil.createDirectoriesSafe(Minecraft.getInstance().gameDirectory.getAbsoluteFile().toPath().resolve("config"));
 +        } catch (IOException e) {
 +            throw new RuntimeException(e);
 +        }
