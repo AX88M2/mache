@@ -35,6 +35,14 @@ mache {
     remapperArgs.set(args)
 }
 
+sourceSets {
+    main {
+        resources {
+            srcDirs("src/main/resources_custom")
+        }
+    }
+}
+
 dependencies {
     codebook("1.0.13")
     remapper(art("2.0.5"))
