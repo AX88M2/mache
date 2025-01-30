@@ -38,7 +38,7 @@ mache {
 sourceSets {
     main {
         resources {
-            srcDirs("src/main/resources_custom")
+            srcDirs("resources")
         }
     }
 }

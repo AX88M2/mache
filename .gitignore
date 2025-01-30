@@ -47,4 +47,3 @@ versions/**/runClient
 versions/*
 # Don't ignore the current version
 !versions/1.21.4
-!versions/**/src/main/resources_custom
