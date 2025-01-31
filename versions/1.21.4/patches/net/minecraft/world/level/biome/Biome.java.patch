@@ -95,7 +95,7 @@
              return this.name;
          }
 +    }
-+    
++
 +    private void setupColors() {
 +        this.cachedSpecialEffects = specialEffects;
 +

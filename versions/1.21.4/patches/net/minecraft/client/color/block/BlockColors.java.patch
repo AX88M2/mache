@@ -1,11 +1,12 @@
 --- a/net/minecraft/client/color/block/BlockColors.java
 +++ b/net/minecraft/client/color/block/BlockColors.java
-@@ -5,6 +_,9 @@
+@@ -5,6 +_,10 @@
  import java.util.Map;
  import java.util.Set;
  import javax.annotation.Nullable;
 +
 +import it.unimi.dsi.fastutil.objects.*;
++import net.caffeinemc.mods.sodium.client.SodiumClientMod;
 +import net.caffeinemc.mods.sodium.client.model.color.interop.BlockColorsExtension;
  import net.minecraft.client.renderer.BiomeColors;
  import net.minecraft.core.BlockPos;
@@ -28,6 +29,21 @@
      public static BlockColors createDefault() {
          BlockColors blockColors = new BlockColors();
          blockColors.register(
+@@ -105,6 +_,14 @@
+ 
+     public void register(BlockColor blockColor, Block... blocks) {
+         for (Block block : blocks) {
++            // There will be one provider already registered for vanilla blocks, if we are replacing it,
++            // it means a mod is using custom logic and we need to disable per-vertex coloring
++            if (this.blocksToColor.put(block, blockColor) != null) {
++                this.overridenBlocks.add(block);
++                SodiumClientMod.logger().info("Block {} had its color provider replaced with {} and will not use per-vertex coloring", BuiltInRegistries.BLOCK.getKey(block), blockColor.toString());
++            }
++        }
++        for (Block block : blocks) {
+             this.blockColors.addMapping(blockColor, BuiltInRegistries.BLOCK.getId(block));
+         }
+     }
 @@ -121,5 +_,15 @@
  
      public Set<Property<?>> getColoringProperties(Block block) {
